@@ -1,0 +1,58 @@
+{{define "content"}}
+{{$d := .Data}}
+<div class="page-head">
+  <h1>{{.T "insp.list_title"}}</h1>
+  <p class="actions"><a class="button" href="{{$d.CSVURL}}">{{.T "insp.csv"}}</a></p>
+</div>
+<form class="card filters" method="get" action="/inspections">
+  <label>{{.T "insp.from"}}<input type="date" name="from" value="{{$d.F.From}}"></label>
+  <label>{{.T "insp.to"}}<input type="date" name="to" value="{{$d.F.To}}"></label>
+  <label>{{.T "insp.col.result"}}
+    <select name="result"><option value="">{{.T "filter.all"}}</option>
+    <option value="pass"{{if eq $d.F.Result "pass"}} selected{{end}}>{{.T "result.pass"}}</option>
+    <option value="fail"{{if eq $d.F.Result "fail"}} selected{{end}}>{{.T "result.fail"}}</option></select>
+  </label>
+  <label>{{.T "acol.category"}}
+    <select name="category"><option value="">{{.T "filter.all"}}</option>
+    {{range $d.Categories}}<option value="{{.ID}}"{{if eq .ID $d.F.CategoryID}} selected{{end}}>{{.Name}}</option>{{end}}</select>
+  </label>
+  <label>{{.T "acol.location"}}
+    <select name="location"><option value="">{{.T "filter.all"}}</option>
+    {{range $d.Locations}}<option value="{{.ID}}"{{if eq .ID $d.F.LocationID}} selected{{end}}>{{.Name}}</option>{{end}}</select>
+  </label>
+  <label>{{.T "insp.col.inspector"}}<input type="search" name="inspector" value="{{$d.F.Inspector}}" maxlength="100"></label>
+  <div class="actions"><button type="submit" class="primary">{{.T "filter.apply"}}</button>{{if $d.Filtered}} <a class="button" href="/inspections">{{.T "filter.reset"}}</a>{{end}}</div>
+</form>
+<section class="card">
+  <p class="muted small">{{.T "assets.count" $d.Result.Total}}</p>
+  <div class="table-wrap">
+  <table class="assets">
+    <thead><tr>
+      <th>{{.T "insp.col.date"}}</th><th>{{.T "acol.inventory_no"}}</th><th>{{.T "acol.name"}}</th><th>{{.T "acol.category"}}</th>
+      <th>{{.T "acol.location"}}</th><th>{{.T "insp.col.result"}}</th><th>{{.T "insp.col.inspector"}}</th><th>{{.T "insp.col.next_due"}}</th>
+    </tr></thead>
+    <tbody>
+    {{range $d.Result.Inspections}}
+      <tr>
+        <td class="nowrap"><a href="/inspections/{{.ID}}">{{date $.Lang .InspectedOn}}</a></td>
+        <td class="nowrap"><a href="/assets/{{.AssetID}}">{{.InventoryNo}}</a></td>
+        <td>{{.AssetName}}</td>
+        <td>{{.CategoryName}}</td>
+        <td>{{.LocationName}}</td>
+        <td><span class="badge badge-{{.Result}}">{{$.T (print "result." .Result)}}</span></td>
+        <td>{{.InspectorName}}</td>
+        <td class="nowrap">{{date $.Lang .NextDue}}</td>
+      </tr>
+    {{else}}<tr><td colspan="8" class="muted">{{$.T "insp.none"}}</td></tr>{{end}}
+    </tbody>
+  </table>
+  </div>
+  {{if gt $d.Result.Pages 1}}
+  <nav class="pager" aria-label="{{.T "pager.label"}}">
+    {{if $d.PrevURL}}<a class="button" href="{{$d.PrevURL}}">← {{.T "pager.prev"}}</a>{{end}}
+    <span class="muted small">{{.T "pager.page" $d.Result.Page $d.Result.Pages}}</span>
+    {{if $d.NextURL}}<a class="button" href="{{$d.NextURL}}">{{.T "pager.next"}} →</a>{{end}}
+  </nav>
+  {{end}}
+</section>
+{{end}}

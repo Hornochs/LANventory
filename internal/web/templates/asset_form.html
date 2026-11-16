@@ -1,0 +1,86 @@
+{{define "content"}}
+{{$d := .Data}}
+{{if $d.Asset}}<h1>{{.T "assets.edit"}}: <code>{{$d.Asset.InventoryNo}}</code></h1>
+{{else}}<h1>{{.T "assets.new"}}: {{$d.Category.Name}}</h1>{{end}}
+{{if $d.Asset}}
+<form method="get" action="/assets/{{$d.Asset.ID}}/edit" class="card category-switch">
+  <label>{{.T "assets.category_switch"}}
+    <select name="category">{{range $d.Categories}}<option value="{{.ID}}"{{if eq .ID $d.Category.ID}} selected{{end}}>{{.Name}}</option>{{end}}</select></label>
+  <button type="submit">{{.T "assets.category_apply"}}</button>
+  <span class="muted small">{{.T "assets.category_switch_hint"}}</span>
+</form>
+{{if $d.Moving}}
+<div class="alert alert-warn">
+  <p>{{.T "assets.category_moving" $d.Asset.CategoryName $d.Category.Name}}</p>
+  {{if $d.Lost}}<p>{{.T "assets.category_lost"}}</p>
+  <ul>{{range $d.Lost}}<li>{{.Label}}: {{if eq .Type "bool"}}{{if eq .Value "1"}}{{$.T "yes"}}{{else}}{{$.T "no"}}{{end}}{{else}}{{.Value}}{{if .Unit}} {{.Unit}}{{end}}{{end}}</li>{{end}}</ul>{{end}}
+</div>
+{{end}}
+{{end}}
+<form method="post" class="card"{{if $d.Asset}} action="/assets/{{$d.Asset.ID}}"{{else}} action="/assets"{{end}}>
+  <input type="hidden" name="_csrf" value="{{.CSRF}}">
+  <input type="hidden" name="category" value="{{$d.Category.ID}}">
+  <div class="form-grid">
+    <label>{{.T "acol.category"}}<input value="{{$d.Category.Name}}" disabled></label>
+    {{if $d.Asset}}
+    <label>{{.T "acol.inventory_no"}}<input value="{{$d.Asset.InventoryNo}}" disabled></label>
+    {{else}}
+    <label>{{.T "acol.inventory_no"}}<input name="inventory_no" value="{{index $d.V "inventory_no"}}" maxlength="64" placeholder="{{.T "assets.number_auto"}}">
+      {{with index $d.Err "inventory_no"}}<span class="field-error">{{.}}</span>{{end}}</label>
+    {{end}}
+    <label>{{.T "acol.name"}}<input name="name" value="{{index $d.V "name"}}" required maxlength="200">
+      {{with index $d.Err "name"}}<span class="field-error">{{.}}</span>{{end}}</label>
+    <label>{{.T "acol.serial_no"}}<input name="serial_no" value="{{index $d.V "serial_no"}}" maxlength="100">
+      {{with index $d.Err "serial_no"}}<span class="field-error">{{.}}</span>{{end}}</label>
+    <label>{{.T "acol.manufacturer"}}<input name="manufacturer" value="{{index $d.V "manufacturer"}}" maxlength="100">
+      {{with index $d.Err "manufacturer"}}<span class="field-error">{{.}}</span>{{end}}</label>
+    <label>{{.T "acol.model"}}<input name="model" value="{{index $d.V "model"}}" maxlength="100">
+      {{with index $d.Err "model"}}<span class="field-error">{{.}}</span>{{end}}</label>
+    {{$loc := index $d.V "location"}}
+    <label>{{.T "acol.location"}}
+      <select name="location"><option value="">–</option>
+      {{range $d.Locations}}<option value="{{.ID}}"{{if eq (print .ID) $loc}} selected{{end}}>{{.Name}}</option>{{end}}</select>
+      {{with index $d.Err "location"}}<span class="field-error">{{.}}</span>{{end}}</label>
+    {{$st := index $d.V "status"}}
+    <label>{{.T "acol.status"}}
+      <select name="status">{{range $d.Statuses}}<option value="{{.}}"{{if eq . $st}} selected{{end}}>{{$.T (print "status." .)}}</option>{{end}}</select>
+      {{with index $d.Err "status"}}<span class="field-error">{{.}}</span>{{end}}</label>
+    <label>{{.T "acol.purchase_date"}}<input type="date" name="purchase_date" value="{{index $d.V "purchase_date"}}">
+      {{with index $d.Err "purchase_date"}}<span class="field-error">{{.}}</span>{{end}}</label>
+    {{if $d.Category.DGUVRequired}}
+    <label>{{.T "acol.dguv_interval"}}<input type="number" name="dguv_interval" min="1" max="120" value="{{index $d.V "dguv_interval"}}" placeholder="{{$d.Category.DGUVIntervalMonths}}">
+      {{with index $d.Err "dguv_interval"}}<span class="field-error">{{.}}</span>{{end}}</label>
+    {{end}}
+  </div>
+  {{if $d.Fields}}
+  <h3>{{.T "assets.fields"}}</h3>
+  <div class="form-grid">
+    {{range $d.Fields}}{{$n := print "f_" .Key}}{{$v := index $d.V $n}}
+    {{if eq .Type "bool"}}
+    <div><label class="check"><input type="hidden" name="{{$n}}" value="0"><input type="checkbox" name="{{$n}}" value="1"{{if eq $v "1"}} checked{{end}}> {{.Label}}</label>
+      {{with index $d.Err $n}}<span class="field-error">{{.}}</span>{{end}}</div>
+    {{else}}
+    <label>{{.Label}}{{if .Required}} *{{end}}
+      {{if eq .Type "select"}}
+      <select name="{{$n}}"{{if .Required}} required{{end}}><option value="">–</option>{{range .Options}}<option value="{{.}}"{{if eq . $v}} selected{{end}}>{{.}}</option>{{end}}</select>
+      {{else if eq .Type "number"}}
+      <span class="with-unit"><input name="{{$n}}" value="{{$v}}" inputmode="decimal" pattern="[+\-]?[0-9]*[.,]?[0-9]*"{{if .Required}} required{{end}}>{{if .Unit}}<span class="unit">{{.Unit}}</span>{{end}}</span>
+      {{else if eq .Type "date"}}
+      <input type="date" name="{{$n}}" value="{{$v}}"{{if .Required}} required{{end}}>
+      {{else}}
+      <input name="{{$n}}" value="{{$v}}" maxlength="500"{{if .Required}} required{{end}}>
+      {{end}}
+      {{with index $d.Err $n}}<span class="field-error">{{.}}</span>{{end}}
+    </label>
+    {{end}}
+    {{end}}
+  </div>
+  {{end}}
+  <label>{{.T "acol.note"}}<textarea name="note" rows="3" maxlength="2000">{{index $d.V "note"}}</textarea>
+    {{with index $d.Err "note"}}<span class="field-error">{{.}}</span>{{end}}</label>
+  <div class="actions">
+    <button type="submit" class="primary">{{.T "action.save"}}</button>
+    <a class="button" href="{{if $d.Asset}}/assets/{{$d.Asset.ID}}{{else}}/assets{{end}}">{{.T "action.cancel"}}</a>
+  </div>
+</form>
+{{end}}

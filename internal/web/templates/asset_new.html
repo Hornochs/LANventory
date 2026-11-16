@@ -1,0 +1,16 @@
+{{define "content"}}
+<h1>{{.T "assets.new"}}</h1>
+<section class="card">
+  <p>{{.T "assets.pick_category"}}</p>
+  <form method="get" action="/assets/new" class="form-grid">
+    <label>{{.T "acol.category"}}
+      <select name="category" required>{{range .Data.Categories}}<option value="{{.ID}}">{{.Name}}{{if .Prefix}} ({{.Prefix}}){{end}}</option>{{end}}</select>
+    </label>
+    <div class="actions"><button type="submit" class="primary">{{.T "action.continue"}}</button></div>
+  </form>
+  {{if not .Data.Categories}}<p class="muted">{{.T "categories.none"}}</p>{{end}}
+  <ul class="plain">
+  {{range .Data.Categories}}<li><a href="/assets/new?category={{.ID}}">{{.Name}}</a>{{if .Prefix}} <code>{{.Prefix}}</code>{{end}}</li>{{end}}
+  </ul>
+</section>
+{{end}}

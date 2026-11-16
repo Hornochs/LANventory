@@ -1,0 +1,129 @@
+{
+  "$id": "https://github.com/lan-dot-party/LANventory/blob/main/docs/config.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "api": {
+      "additionalProperties": false,
+      "description": "Configures the REST API under /api/v1.",
+      "properties": {
+        "rate_burst": {
+          "default": 30,
+          "description": "The number of API requests a token may send at once before RateLimit applies.",
+          "type": "integer"
+        },
+        "rate_limit": {
+          "default": 10,
+          "description": "The sustained number of API requests per second for each API token (browser sessions are limited per user). Excess requests get HTTP 429.",
+          "type": "number"
+        }
+      },
+      "type": "object"
+    },
+    "inventory": {
+      "additionalProperties": false,
+      "description": "Configures inventory behavior (number format of generated inventory numbers).",
+      "properties": {
+        "number_format": {
+          "default": "{prefix}-{seq:05}",
+          "description": "The template of automatically assigned inventory numbers: {prefix} is the category prefix, {seq:05} the running number with the given minimum width. Without {prefix} (for example \"{seq:04}\" for 0001, 0002, …) all categories share one running number; a category without prefix drops {prefix} and the separator after it.",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "listen": {
+      "default": "127.0.0.1:9060",
+      "description": "The HTTP listen address, e.g. \"127.0.0.1:9060\".",
+      "type": "string"
+    },
+    "log": {
+      "additionalProperties": false,
+      "description": "Configures logging.",
+      "properties": {
+        "format": {
+          "default": "text",
+          "description": "The log output format: text or json.",
+          "enum": [
+            "text",
+            "json"
+          ],
+          "type": "string"
+        },
+        "level": {
+          "default": "info",
+          "description": "The minimum log level: debug, info, warn or error.",
+          "enum": [
+            "debug",
+            "info",
+            "warn",
+            "error"
+          ],
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "organization": {
+      "additionalProperties": false,
+      "description": "Describes who runs this instance; it appears on printed inspection protocols.",
+      "properties": {
+        "name": {
+          "description": "Printed in the header of inspection protocols, for example the name of your association or company. Optional; empty prints no name.",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "public_url": {
+      "default": "http://127.0.0.1:9060",
+      "description": "The externally visible base URL (scheme, host and port, no path). If it starts with https://, session cookies are marked Secure. Requests whose Origin header differs from it are rejected.",
+      "type": "string"
+    },
+    "secret_key_file": {
+      "default": "secret.key",
+      "description": "The file with the AES-256 key that encrypts secrets in the database (64 hex characters). It is created if missing.",
+      "type": "string"
+    },
+    "storage": {
+      "additionalProperties": false,
+      "description": "Configures the SQLite database.",
+      "properties": {
+        "path": {
+          "default": "data/lanventory.db",
+          "description": "The SQLite database file. Its directory is created if missing.",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "tls": {
+      "additionalProperties": false,
+      "description": "Enables the built-in TLS listener; usually a reverse proxy does this.",
+      "properties": {
+        "cert_file": {
+          "description": "The PEM certificate (chain). Set together with tls.key_file.",
+          "type": "string"
+        },
+        "key_file": {
+          "description": "The PEM private key.",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "trusted_proxies": {
+      "default": [
+        "127.0.0.1",
+        "::1"
+      ],
+      "description": "The proxy IPs or networks whose X-Real-IP / X-Forwarded-For headers are trusted for client IPs (lockout, audit log).",
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    }
+  },
+  "title": "LANventory config.yaml",
+  "type": "object"
+}

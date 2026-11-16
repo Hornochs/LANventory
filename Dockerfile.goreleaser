@@ -1,0 +1,24 @@
+# LANventory image for GoReleaser (dockers_v2): the pre-built binary of each
+# platform lies in $TARGETPLATFORM/ of the build context.
+FROM alpine:3.21
+
+ARG TARGETPLATFORM
+
+RUN apk add --no-cache ca-certificates tzdata && \
+    addgroup -S lanventory && adduser -S -D -H -h /var/lib/lanventory -G lanventory lanventory && \
+    mkdir -p /etc/lanventory /var/lib/lanventory && chown lanventory:lanventory /var/lib/lanventory
+
+COPY $TARGETPLATFORM/lanventory /usr/bin/lanventory
+COPY packaging/docker-config.yaml /etc/lanventory/config.yaml
+
+ENV LANVENTORY_CONFIG=/etc/lanventory/config.yaml
+WORKDIR /var/lib/lanventory
+VOLUME /var/lib/lanventory
+USER lanventory
+EXPOSE 9060
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+    CMD wget -q -O /dev/null http://127.0.0.1:9060/health || exit 1
+
+ENTRYPOINT ["lanventory"]
+CMD ["server"]

@@ -1,0 +1,34 @@
+{{define "content"}}
+{{$d := .Data}}
+{{$r := $d.Result}}
+<h1>{{.T "data.title"}}: {{.T "data.done"}}</h1>
+<section class="card">
+  <p class="alert alert-ok">{{.T "data.done"}}</p>
+  <h3>{{.T "data.created"}}</h3>
+  <p>
+    <span class="badge badge-ok">{{.T "data.locations"}}: {{$r.LocationsCreated}}</span>
+    <span class="badge badge-ok">{{.T "data.categories"}}: {{$r.CategoriesCreated}}</span>
+    <span class="badge badge-ok">{{.T "data.fields"}}: {{$r.FieldsCreated}}</span>
+    <span class="badge badge-ok">{{.T "data.options"}}: {{$r.OptionsAdded}}</span>
+    <span class="badge badge-ok">{{.T "data.assets"}}: {{$r.AssetsCreated}}</span>
+    <span class="badge badge-ok">{{.T "data.inspections"}}: {{$r.InspectionsCreated}}</span>
+    <span class="badge badge-muted">{{.T "data.skipped"}}: {{len $r.SkippedAssets}}</span>
+  </p>
+  <div class="actions"><a class="button primary" href="/assets">{{.T "imp.to_assets"}}</a> <a class="button" href="/admin/data">{{.T "data.another"}}</a></div>
+</section>
+{{if $d.Warnings}}
+<section class="card">
+  <h3>{{.T "data.warnings"}}</h3>
+  <table class="table">
+    <thead><tr><th>{{.T "data.col_path"}}</th><th>{{.T "data.col_problem"}}</th></tr></thead>
+    <tbody>{{range $d.Warnings}}<tr><td><code>{{.Path}}</code></td><td>{{.Message}}</td></tr>{{end}}</tbody>
+  </table>
+</section>
+{{end}}
+{{if $d.Skipped}}
+<section class="card">
+  <h3>{{.T "data.skipped"}}</h3>
+  <p>{{range $i, $n := $d.Skipped}}{{if $i}}, {{end}}<code>{{$n}}</code>{{end}}{{if $d.More}} {{.T "data.skipped_more" $d.More}}{{end}}</p>
+</section>
+{{end}}
+{{end}}

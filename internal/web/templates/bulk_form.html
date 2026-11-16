@@ -1,0 +1,101 @@
+{{define "content"}}
+{{$d := .Data}}
+<h1>{{.T "bulk.title"}}</h1>
+<section class="card">
+  <p><strong>{{.T "bulk.selected_n" $d.Count}}</strong></p>
+  <p class="small bulk-numbers">{{range $i, $n := $d.Numbers}}{{if $i}}, {{end}}<code>{{$n}}</code>{{end}}{{if $d.More}} {{.T "bulk.and_more" $d.More}}{{end}}</p>
+  <p class="muted small">{{.T "bulk.intro"}}</p>
+</section>
+<form method="post" action="/assets/bulk/preview" class="card bulk-form">
+  <input type="hidden" name="_csrf" value="{{.CSRF}}">
+  {{range $d.IDs}}<input type="hidden" name="id" value="{{.}}">{{end}}
+
+  <div class="bulk-row">
+    <label class="check"><input type="checkbox" name="chg_category" value="1"{{if index $d.V "chg_category"}} checked{{end}}> {{.T "bulk.change"}}</label>
+    {{$cat := index $d.V "v_category"}}
+    <label>{{.T "acol.category"}}
+      <select name="v_category">{{range $d.Categories}}<option value="{{.ID}}"{{if eq (print .ID) $cat}} selected{{end}}>{{.Name}}</option>{{end}}</select></label>
+    <div class="bulk-aside"><button type="submit" formaction="/assets/bulk/edit" name="reload" value="1">{{.T "bulk.load_fields"}}</button>
+      <span class="muted small">{{.T "bulk.load_fields_hint"}}</span></div>
+  </div>
+
+  <div class="bulk-row">
+    <label class="check"><input type="checkbox" name="chg_location" value="1"{{if index $d.V "chg_location"}} checked{{end}}> {{.T "bulk.change"}}</label>
+    {{$loc := index $d.V "v_location"}}
+    <label>{{.T "acol.location"}}
+      <select name="v_location"><option value="">–</option>
+      {{range $d.Locations}}<option value="{{.ID}}"{{if eq (print .ID) $loc}} selected{{end}}>{{.Name}}</option>{{end}}</select></label>
+  </div>
+
+  <div class="bulk-row">
+    <label class="check"><input type="checkbox" name="chg_status" value="1"{{if index $d.V "chg_status"}} checked{{end}}> {{.T "bulk.change"}}</label>
+    {{$st := index $d.V "v_status"}}
+    <label>{{.T "acol.status"}}
+      <select name="v_status">{{range $d.Statuses}}<option value="{{.}}"{{if eq . $st}} selected{{end}}>{{$.T (print "status." .)}}</option>{{end}}</select></label>
+  </div>
+
+  <div class="bulk-row">
+    <label class="check"><input type="checkbox" name="chg_manufacturer" value="1"{{if index $d.V "chg_manufacturer"}} checked{{end}}> {{.T "bulk.change"}}</label>
+    <label>{{.T "acol.manufacturer"}}<input name="v_manufacturer" value="{{index $d.V "v_manufacturer"}}" maxlength="100"></label>
+    <span class="muted small">{{.T "bulk.clear_hint"}}</span>
+  </div>
+
+  <div class="bulk-row">
+    <label class="check"><input type="checkbox" name="chg_model" value="1"{{if index $d.V "chg_model"}} checked{{end}}> {{.T "bulk.change"}}</label>
+    <label>{{.T "acol.model"}}<input name="v_model" value="{{index $d.V "v_model"}}" maxlength="100"></label>
+    <span class="muted small">{{.T "bulk.clear_hint"}}</span>
+  </div>
+
+  <div class="bulk-row">
+    <label class="check"><input type="checkbox" name="chg_purchase_date" value="1"{{if index $d.V "chg_purchase_date"}} checked{{end}}> {{.T "bulk.change"}}</label>
+    <label>{{.T "acol.purchase_date"}}<input type="date" name="v_purchase_date" value="{{index $d.V "v_purchase_date"}}"></label>
+    <span class="muted small">{{.T "bulk.clear_hint"}}</span>
+  </div>
+
+  <div class="bulk-row">
+    <label class="check"><input type="checkbox" name="chg_dguv_interval" value="1"{{if index $d.V "chg_dguv_interval"}} checked{{end}}> {{.T "bulk.change"}}</label>
+    <label>{{.T "acol.dguv_interval"}}<input type="number" name="v_dguv_interval" min="1" max="120" value="{{index $d.V "v_dguv_interval"}}"></label>
+    <span class="muted small">{{.T "bulk.dguv_hint"}}</span>
+  </div>
+
+  <div class="bulk-row">
+    <label class="check"><input type="checkbox" name="chg_note" value="1"{{if index $d.V "chg_note"}} checked{{end}}> {{.T "bulk.change"}}</label>
+    {{$mode := index $d.V "note_mode"}}
+    <label>{{.T "acol.note"}}<textarea name="v_note" rows="3" maxlength="2000">{{index $d.V "v_note"}}</textarea></label>
+    <div class="bulk-aside">
+      <label class="check"><input type="radio" name="note_mode" value="replace"{{if ne $mode "append"}} checked{{end}}> {{.T "bulk.note_replace"}}</label>
+      <label class="check"><input type="radio" name="note_mode" value="append"{{if eq $mode "append"}} checked{{end}}> {{.T "bulk.note_append"}}</label>
+    </div>
+  </div>
+
+  {{if $d.Fields}}
+  <h3>{{.T "bulk.fields_heading" $d.FieldsCat.Name}}</h3>
+  {{range $d.Fields}}{{$key := .Key}}{{$n := print "v_f_" .Key}}{{$v := index $d.V $n}}
+  <div class="bulk-row">
+    <label class="check"><input type="checkbox" name="chg_f_{{$key}}" value="1"{{if index $d.V (print "chg_f_" $key)}} checked{{end}}> {{$.T "bulk.change"}}</label>
+    <label>{{.Label}}{{if .Required}} *{{end}}
+      {{if eq .Type "bool"}}
+      <select name="{{$n}}"><option value="">–</option><option value="1"{{if eq $v "1"}} selected{{end}}>{{$.T "yes"}}</option><option value="0"{{if eq $v "0"}} selected{{end}}>{{$.T "no"}}</option></select>
+      {{else if eq .Type "select"}}
+      <select name="{{$n}}"><option value="">–</option>{{range .Options}}<option value="{{.}}"{{if eq . $v}} selected{{end}}>{{.}}</option>{{end}}</select>
+      {{else if eq .Type "number"}}
+      <span class="with-unit"><input name="{{$n}}" value="{{$v}}" inputmode="decimal" pattern="[+\-]?[0-9]*[.,]?[0-9]*">{{if .Unit}}<span class="unit">{{.Unit}}</span>{{end}}</span>
+      {{else if eq .Type "date"}}
+      <input type="date" name="{{$n}}" value="{{$v}}">
+      {{else}}
+      <input name="{{$n}}" value="{{$v}}" maxlength="500">
+      {{end}}
+    </label>
+    <span class="muted small">{{$.T "bulk.clear_hint"}}</span>
+  </div>
+  {{end}}
+  {{else}}
+  <p class="muted small">{{.T "bulk.fields_one_cat"}}</p>
+  {{end}}
+
+  <div class="actions">
+    <button type="submit" class="primary">{{.T "bulk.preview"}}</button>
+    <a class="button" href="/assets">{{.T "action.cancel"}}</a>
+  </div>
+</form>
+{{end}}

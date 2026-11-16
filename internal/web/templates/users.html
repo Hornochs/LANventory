@@ -1,0 +1,64 @@
+{{define "content"}}
+<h1>{{.T "users.title"}}</h1>
+<section class="card">
+  <table>
+    <thead><tr><th>{{.T "login.username"}}</th><th>{{.T "col.role"}}</th><th>{{.T "users.last_login"}}</th><th>{{.T "users.change"}}</th><th></th></tr></thead>
+    <tbody>
+    {{range .Data.Users}}
+      <tr{{if .Disabled}} class="muted"{{end}}>
+        <td>{{.Username}}{{if .Disabled}} <span class="badge badge-muted">{{$.T "users.disabled"}}</span>{{end}}{{if .CanInspect}} <span class="badge">{{$.T "col.inspect"}}</span>{{end}}
+          {{with index $.Data.MFA .ID}}{{if .Enabled}} <span class="badge badge-ok" title="{{$.T "users.mfa_title"}}">{{$.T "users.mfa"}}{{if .TOTP}} · TOTP{{end}}{{if .Passkeys}} · {{$.T "users.passkeys" .Passkeys}}{{end}}</span>{{end}}{{end}}</td>
+        <td>{{$.T (print "role." .Role)}}</td>
+        <td class="small">{{if .LastLoginAt}}<time class="ts" data-ts="{{.LastLoginAt.Unix}}" datetime="{{.LastLoginAt.Format "2006-01-02T15:04:05Z"}}">{{.LastLoginAt.Format "2006-01-02 15:04"}} UTC</time>{{else}}–{{end}}</td>
+        <td>
+          <form method="post" action="/admin/users/{{.ID}}" class="inline">
+            <input type="hidden" name="_csrf" value="{{$.CSRF}}">
+            {{$role := .Role}}
+            <select name="role" aria-label="{{$.T "col.role"}}">
+              {{range roles}}<option value="{{.}}"{{if eq . $role}} selected{{end}}>{{$.T (print "role." .)}}</option>{{end}}
+            </select>
+            <label class="check"><input type="checkbox" name="can_inspect" value="1"{{if .CanInspect}} checked{{end}}> {{$.T "users.can_inspect"}}</label>
+            <label class="check"><input type="checkbox" name="disabled" value="1"{{if .Disabled}} checked{{end}}> {{$.T "users.disabled"}}</label>
+            <button type="submit">{{$.T "action.save"}}</button>
+          </form>
+          <details>
+            <summary class="small">{{$.T "users.reset_password"}}</summary>
+            <form method="post" action="/admin/users/{{.ID}}/password" class="inline">
+              <input type="hidden" name="_csrf" value="{{$.CSRF}}">
+              <input type="password" name="password" minlength="10" required placeholder="{{$.T "users.new_password"}}" autocomplete="new-password" aria-label="{{$.T "users.new_password"}}">
+              <input type="password" name="confirm_password" required placeholder="{{$.T "users.confirm"}}" autocomplete="current-password" aria-label="{{$.T "users.confirm"}}">
+              <button type="submit">{{$.T "action.save"}}</button>
+            </form>
+          </details>
+          {{$uid := .ID}}{{$uname := .Username}}{{with index $.Data.MFA .ID}}{{if .Enabled}}
+          <form method="post" action="/admin/users/{{$uid}}/mfa-reset" data-confirm="{{$.T "users.mfa_reset_confirm" $uname}}">
+            <input type="hidden" name="_csrf" value="{{$.CSRF}}"><button class="link small" type="submit">{{$.T "users.mfa_reset"}}</button>
+          </form>{{end}}{{end}}
+        </td>
+        <td>
+          {{if ne .ID $.User.ID}}
+          <form method="post" action="/admin/users/{{.ID}}/delete" data-confirm="{{$.T "users.delete_confirm" .Username}}">
+            <input type="hidden" name="_csrf" value="{{$.CSRF}}"><button class="link danger-text" type="submit">{{$.T "action.delete"}}</button>
+          </form>
+          {{end}}
+        </td>
+      </tr>
+    {{end}}
+    </tbody>
+  </table>
+</section>
+<section class="card">
+  <h3>{{.T "users.add"}}</h3>
+  <form method="post" action="/admin/users" class="form-grid" autocomplete="off">
+    <input type="hidden" name="_csrf" value="{{.CSRF}}">
+    <label>{{.T "login.username"}}<input name="username" required maxlength="64" autocomplete="off"></label>
+    <label>{{.T "users.new_password"}}<input type="password" name="password" required minlength="10" autocomplete="new-password"></label>
+    <label>{{.T "col.role"}}<select name="role">{{range roles}}<option value="{{.}}">{{$.T (print "role." .)}}</option>{{end}}</select></label>
+    <label>{{.T "account.language"}}<select name="language"><option value="de">Deutsch</option><option value="en">English</option></select></label>
+    <label class="check"><input type="checkbox" name="can_inspect" value="1"> {{.T "users.can_inspect"}}</label>
+    <label>{{.T "users.confirm"}}<input type="password" name="confirm_password" required autocomplete="current-password"></label>
+    <div class="actions"><button type="submit" class="primary">{{.T "users.add"}}</button></div>
+  </form>
+  <p class="muted small">{{.T "users.roles_hint"}}</p>
+</section>
+{{end}}

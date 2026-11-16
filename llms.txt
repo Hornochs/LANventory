@@ -1,0 +1,128 @@
+# LANventory
+
+> Inventory system for LAN parties: assets with inventory number, category, name and serial
+> number, configurable fields per category, and tracking of DGUV V3 electrical inspections
+> (German focus). One Go binary, SQLite, server-rendered web UI.
+
+Key concepts (details in docs/concepts.md):
+- Asset: one physical item (single assets only, no quantity items). Has an inventory number,
+  category, name, serial number, location, status and the custom fields of its category.
+- Inventory number: generated from `inventory.number_format` (default `{prefix}-{seq:05}`, for
+  example `SL-00042`; the prefix comes from the category and is optional; `{seq:04}` gives plain
+  numbers 0001, 0002, … shared by all categories); can be overridden manually; unique.
+- Category: defines the (optional) number prefix, the DGUV settings and custom fields. Field types: text,
+  number, select, bool, date. Number fields can have a unit (for example `m`). Editable in the
+  web UI by admins; German templates (power strip, cable drum, ...) are seeded once. The
+  category of an existing asset can be changed (values move by field key, the number and the
+  inspections stay); a category with assets cannot be deleted.
+- Asset list (`/assets`): search, filters by category, location, status and the select/bool
+  fields of a category, sorting, paging; the state is in the URL query. Each asset has a change
+  history built from the audit log.
+- Location: a flat list (no hierarchy), for example "Storage 1". Cannot be deleted while assets
+  use it.
+- Asset status: active, defective, retired, lost.
+- DGUV V3 inspection: periodic test of portable electrical equipment. A category can require it
+  (`dguv_required`) and sets the interval in months; an asset can override the interval. An
+  inspection is a record (no editing; admins can delete): date, inspector name (may be an
+  external electrician), result (pass/fail), protection class, visual and functional check,
+  reason (initial, repeat, repair), measurements (protective conductor resistance in ohm,
+  insulation resistance in megohm, protective conductor / leakage current in mA with its method
+  direct, differential or alternative, touch current in mA; a reading beyond the instrument's
+  range carries a qualifier `<` or `>`, for example `>299`), test device with ID and calibration
+  date, remark, the applied interval and the next due date
+  (inspection date plus interval in calendar months, clamped to the month end). Only users with
+  the `can_inspect` flag record inspections; only assets of DGUV categories that are not retired
+  or lost can be inspected. A failed inspection can set the asset to defective. LANventory shows
+  non-binding hints for values outside simplified limits of DIN VDE 0701-0702 but never decides
+  pass or fail. LANventory documents inspections; it does not replace a qualified electrician.
+- Inspection pages: `/inspections/due` (overdue, due within 30 days, never inspected; filters
+  category, location, state), `/inspections` (list with filters date range, result, category,
+  location, inspector; CSV export at `/inspections.csv` with the same filters), `/inspections/{id}`
+  and the printable protocol `/inspections/{id}/print`. The dashboard shows the counts.
+- CSV: `/assets.csv` exports the asset list (same filters and sort, up to 50 000 rows; columns
+  inventory_no, category, category_prefix, name, serial_no, manufacturer, model, location, status,
+  purchase_date, dguv_interval_months, note, last_inspected_on, next_due, then `field:<key>` per
+  custom field; UTF-8, comma, CRLF; cells starting with `=+-@` get a leading apostrophe).
+  Editors and admins import CSV files at `/assets/import` (upload up to 5 MB, delimiter and
+  encoding auto-detected incl. Windows-1252, column mapping, preview, one transaction, all or
+  nothing or skip invalid rows, existing inventory numbers skipped or updated). The export
+  can be imported again unchanged. Optional inspection columns (inspected_on, inspector_name,
+  result, reason, protection_class, visual_ok, function_ok, pe_resistance_ohm, insulation_mohm,
+  leakage_ma, leakage_method, touch_ma, test_device, test_device_id, test_device_calibrated_until,
+  remark; German headers and values such as bestanden, SK I, `>299` are recognized) record a past
+  inspection per row for DGUV categories (identical inspections are not duplicated; only users with
+  `can_inspect`; a failed result does not change the status). There is no CSV API.
+- Bulk edit: editors and admins tick assets in the list (or "all matches of the filter", at most 1000) and
+  change category, location, status, manufacturer, model, purchase date, DGUV interval, note and custom
+  fields at once (custom fields when the assets end up in one category); preview (dry run), then one
+  transaction, all or nothing; name, serial number and inventory number are not bulk-editable. API: `PATCH /api/v1/assets`.
+- Data export/import: admins download the whole inventory including inspections as one JSON file
+  (`GET /admin/data/export.json`, format `lanventory-export`, version 1: locations, categories
+  with fields, assets with field values and inspections; no users, tokens or settings) and import
+  it at `/admin/data` or with `lanventory data import` (preview, one transaction, existing
+  inventory numbers skipped or abort, dry run). It moves data between instances; there is no API for it.
+- Roles: viewer < editor < admin (viewers read, editors change assets and locations, admins
+  manage categories and users). The flag `can_inspect` (right to record inspections) is
+  independent of the role.
+- Login: password plus optional second factor (TOTP app, passkey, single-use recovery code), or
+  passwordless with a passkey. Admins can require a second factor for admins or everyone.
+
+Units and conventions: timestamps are RFC 3339 UTC in the API (Unix seconds in the database);
+lengths and other measures are numbers, the unit comes from the field definition.
+
+## API (v1)
+
+JSON under `/api/v1/`; the OpenAPI 3.1 spec is the single source of truth.
+- [OpenAPI spec (JSON)](/api/openapi.json) (also `/api/openapi.yaml`)
+- [API docs](/api/) (human-readable, generated from the spec)
+
+Auth: `Authorization: Bearer lvk_...` (tokens are created by users in the web UI under Account >
+API tokens, shown once, stored hashed). A token acts as its owner with at most the owner's current
+rights; effective permission = scope AND role. Scopes: `read:assets` (locations, categories,
+assets), `write:assets` (create/update/delete assets and locations; deleting an asset needs an
+admin owner; categories are read-only), `read:inspections`, `write:inspections` (needs the owner's
+`can_inspect`; deleting an inspection needs an admin owner). A logged-in browser session works too
+(header `X-CSRF-Token` on unsafe methods). Per-token rate limit (HTTP 429).
+
+Conventions: snake_case JSON, timestamps RFC 3339 UTC, dates `YYYY-MM-DD`, numbers as numbers;
+custom field values in `fields` ({key: value}: number, boolean or string by field type). Lists:
+`?page=&per_page=` (max 200) and `{items, page, per_page, total}`. Errors: RFC 9457
+`application/problem+json` with stable `code` (not_found, invalid_token, insufficient_scope,
+forbidden, validation_failed with an `errors` map per field, conflict, rate_limited, csrf_failed,
+...). PATCH is partial. Inspections cannot be edited.
+
+Endpoints:
+- `GET /api/v1/me`
+- `GET|POST /api/v1/locations`, `GET|PATCH|DELETE /api/v1/locations/{id}` (409 while in use)
+- `GET /api/v1/categories`, `GET /api/v1/categories/{id}` (fields: key, label, type, unit, options, required)
+- `GET|POST /api/v1/assets` (filters q, category, location, status, f_<key>; inventory_no optional on create),
+  `GET|PATCH|DELETE /api/v1/assets/{id}` (category immutable), `GET /api/v1/assets/by-number/{inventory_no}`
+- `PATCH /api/v1/assets` (bulk): body `{"ids": [1,2], "changes": {...}, "dry_run": false}` applies the same
+  change (category_id, location_id, status, manufacturer, model, purchase_date, dguv_interval_months, note,
+  note_append, fields) to up to 1000 assets, all or nothing; name, serial_no, inventory_no are not allowed;
+  422 errors are keyed "<asset id>.<field>"
+- `GET /api/v1/inspections` (from, to, result, category, location, asset, inspector),
+  `GET|DELETE /api/v1/inspections/{id}`, `GET /api/v1/inspections/due` (state, category, location),
+  `GET|POST /api/v1/assets/{id}/inspections`
+
+Examples:
+
+    curl -H "Authorization: Bearer $TOKEN" "https://inventory.example/api/v1/assets?q=drum&status=active"
+    curl -H "Authorization: Bearer $TOKEN" https://inventory.example/api/v1/assets/by-number/KT-00012
+    curl -X POST -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+      -d '{"category_id": 2, "name": "Drum 25 m", "fields": {"length": 25}}' https://inventory.example/api/v1/assets
+    curl -X POST -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+      -d '{"result": "pass", "visual_ok": true, "function_ok": true, "insulation_mohm": ">299"}' https://inventory.example/api/v1/assets/12/inspections
+
+Full guide: docs/api.md (in llms-full.txt together with the OpenAPI spec).
+
+## Documentation (repository)
+
+- [Full documentation in one file](https://github.com/lan-dot-party/LANventory/blob/main/docs/llms-full.txt)
+- [Concepts](https://github.com/lan-dot-party/LANventory/blob/main/docs/concepts.md)
+- [API guide](https://github.com/lan-dot-party/LANventory/blob/main/docs/api.md)
+- [Architecture](https://github.com/lan-dot-party/LANventory/blob/main/docs/architecture.md)
+- [Configuration reference](https://github.com/lan-dot-party/LANventory/blob/main/docs/configuration.md)
+- [Security](https://github.com/lan-dot-party/LANventory/blob/main/docs/security.md)
+- [Decisions (ADRs)](https://github.com/lan-dot-party/LANventory/blob/main/docs/adr/README.md)
+- [Roadmap](https://github.com/lan-dot-party/LANventory/blob/main/docs/ROADMAP.md)

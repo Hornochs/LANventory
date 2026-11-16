@@ -1,0 +1,68 @@
+{{define "protocol"}}<!doctype html>
+<html lang="{{.Lang}}">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>{{.T "insp.protocol"}} {{.Data.Asset.InventoryNo}} {{date .Lang .Data.In.InspectedOn}}</title>
+<link rel="stylesheet" href="/static/print.css">
+<link rel="icon" href="/static/icon.svg" type="image/svg+xml">
+</head>
+<body>
+{{$i := .Data.In}}{{$a := .Data.Asset}}
+<p class="no-print screen-hint"><a href="/inspections/{{$i.ID}}">← {{.T "insp.back"}}</a> · {{.T "insp.print_hint"}}</p>
+<main class="sheet">
+<header>
+  {{if .Data.Org}}<p class="org">{{.Data.Org}}</p>{{end}}
+  <h1>{{.T "insp.protocol_title"}}</h1>
+  <p class="sub">{{.T "insp.protocol_sub"}}</p>
+</header>
+
+<h2>{{.T "insp.sec_device"}}</h2>
+<table>
+  <tr><th>{{.T "acol.inventory_no"}}</th><td>{{$a.InventoryNo}}</td><th>{{.T "acol.name"}}</th><td>{{$a.Name}}</td></tr>
+  <tr><th>{{.T "acol.category"}}</th><td>{{$a.CategoryName}}</td><th>{{.T "acol.location"}}</th><td>{{$a.LocationName}}</td></tr>
+  <tr><th>{{.T "acol.manufacturer"}}</th><td>{{$a.Manufacturer}}</td><th>{{.T "acol.model"}}</th><td>{{$a.Model}}</td></tr>
+  <tr><th>{{.T "acol.serial_no"}}</th><td>{{$a.SerialNo}}</td><th>{{.T "insp.class"}}</th><td>{{$i.ProtectionClass}}</td></tr>
+  {{range .Data.Fields}}
+  <tr><th>{{.Label}}</th><td colspan="3">{{if eq .Type "bool"}}{{if eq .Value "1"}}{{$.T "yes"}}{{else if eq .Value "0"}}{{$.T "no"}}{{end}}{{else if eq .Type "number"}}{{num $.Lang .Value}}{{if and .Value .Unit}} {{.Unit}}{{end}}{{else if eq .Type "date"}}{{date $.Lang .Value}}{{else}}{{.Value}}{{if and .Value .Unit}} {{.Unit}}{{end}}{{end}}</td></tr>
+  {{end}}
+</table>
+
+<h2>{{.T "insp.sec_inspection"}}</h2>
+<table>
+  <tr><th>{{.T "insp.col.date"}}</th><td>{{date .Lang $i.InspectedOn}}</td><th>{{.T "insp.col.inspector"}}</th><td>{{$i.InspectorName}}</td></tr>
+  <tr><th>{{.T "insp.visual_ok"}}</th><td>{{if $i.VisualOK}}{{.T "yes"}}{{else}}{{.T "no"}}{{end}}</td><th>{{.T "insp.function_ok"}}</th><td>{{if $i.FunctionOK}}{{.T "yes"}}{{else}}{{.T "no"}}{{end}}</td></tr>
+  <tr><th>{{.T "insp.reason"}}</th><td colspan="3">{{if $i.Reason}}{{.T (print "reason." $i.Reason)}}{{else}}–{{end}}</td></tr>
+  <tr><th>{{.T "insp.pe"}}</th><td>{{with meas .Lang $i.PECmp $i.PEResistanceOhm}}{{.}} Ω{{else}}–{{end}}</td>
+      <th>{{.T "insp.insulation"}}</th><td>{{with meas .Lang $i.InsulationCmp $i.InsulationMOhm}}{{.}} MΩ{{else}}–{{end}}</td></tr>
+  <tr><th>{{.T "insp.leakage"}}</th><td>{{with meas .Lang $i.LeakageCmp $i.LeakageMA}}{{.}} mA{{else}}–{{end}}</td>
+      <th>{{.T "insp.leakage_method"}}</th><td>{{if $i.LeakageMethod}}{{.T (print "method." $i.LeakageMethod)}}{{else}}–{{end}}</td></tr>
+  <tr><th>{{.T "insp.touch"}}</th><td>{{with meas .Lang $i.TouchCmp $i.TouchMA}}{{.}} mA{{else}}–{{end}}</td>
+      <th>{{.T "insp.test_device"}}</th><td>{{$i.TestDevice}}</td></tr>
+  <tr><th>{{.T "insp.test_device_id"}}</th><td>{{$i.TestDeviceID}}</td>
+      <th>{{.T "insp.calibrated_until"}}</th><td>{{if $i.TestDeviceCalibratedUntil}}{{date .Lang $i.TestDeviceCalibratedUntil}}{{end}}</td></tr>
+  <tr><th>{{.T "insp.col.result"}}</th><td class="result result-{{$i.Result}}">{{.T (print "result." $i.Result)}}</td>
+      <th>{{.T "insp.col.next_due"}}</th><td>{{date .Lang $i.NextDue}} ({{.T "cat.dguv_months" $i.IntervalMonths}})</td></tr>
+  <tr><th>{{.T "insp.remark"}}</th><td colspan="3" class="pre">{{$i.Remark}}</td></tr>
+</table>
+{{if .Data.Flags}}
+<div class="guidance">
+  <strong>{{.T "insp.guidance"}}</strong>
+  <ul>{{range .Data.Flags}}<li>{{$.T (print "guide." .Key) (num $.Lang .Limit)}}</li>{{end}}</ul>
+  <p class="small">{{.T "insp.guidance_note"}}</p>
+</div>
+{{end}}
+
+<div class="signatures">
+  <div><div class="line"></div><p>{{.T "insp.sig_place_date"}}</p></div>
+  <div><div class="line"></div><p>{{.T "insp.sig_inspector"}}: {{$i.InspectorName}}</p></div>
+</div>
+
+<footer>
+  <p class="disclaimer">{{.T "dguv.disclaimer"}}</p>
+  <p class="small">{{.T "insp.protocol_id" $i.ID}} · LANventory {{.Version}}</p>
+</footer>
+</main>
+</body>
+</html>{{end}}

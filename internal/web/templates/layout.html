@@ -1,0 +1,89 @@
+{{define "layout"}}<!doctype html>
+<html lang="{{.Lang}}" data-theme="{{.Theme}}">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{if .Title}}{{.Title}} · {{end}}LANventory</title>
+{{if .HTMX}}<meta name="htmx-config" content='{"includeIndicatorStyles":false,"allowEval":false,"allowScriptTags":false}'>
+{{end}}<link rel="stylesheet" href="/static/app.css">
+<link rel="icon" href="/static/icon.svg" type="image/svg+xml">
+<script src="/static/app.js" defer></script>
+<script src="/static/webauthn.js" defer></script>
+{{if .HTMX}}<script src="/static/htmx.min.js" defer></script>
+{{end}}
+</head>
+<body{{if .CSRF}} data-csrf="{{.CSRF}}"{{end}}>
+{{if .User}}
+<header class="topbar">
+  <a class="brand" href="/"><img src="/static/icon.svg" alt="" width="24" height="24"> LANventory</a>
+  <nav class="nav">
+    <a href="/" {{if eq .Nav "dashboard"}}class="active"{{end}}>{{.T "nav.dashboard"}}</a>
+    <a href="/assets" {{if eq .Nav "inventory"}}class="active"{{end}}>{{.T "nav.inventory"}}</a>
+    {{if .Can "admin"}}<a href="/admin/users" {{if eq .Nav "admin"}}class="active"{{end}}>{{.T "nav.admin"}}</a>{{end}}
+  </nav>
+  <div class="user">
+    <form action="/account/theme" method="post" class="theme-toggle">
+      <input type="hidden" name="_csrf" value="{{.CSRF}}">
+      <input type="hidden" name="theme" value="{{.NextTheme}}">
+      <input type="hidden" name="back" value="{{.Path}}">
+      <button class="icon" type="submit" title="{{.T "theme.toggle" (.T (print "theme." .Theme)) (.T (print "theme." .NextTheme))}}"
+        aria-label="{{.T "theme.toggle" (.T (print "theme." .Theme)) (.T (print "theme." .NextTheme))}}">{{if eq .Theme "dark"}}☾{{else if eq .Theme "light"}}☀{{else}}◐{{end}}</button>
+    </form>
+    <a href="/account" {{if eq .Nav "account"}}class="active"{{end}}>{{.User.Username}}</a>
+    <form action="/logout" method="post"><input type="hidden" name="_csrf" value="{{.CSRF}}">
+      <button class="link" type="submit">{{.T "nav.logout"}}</button></form>
+  </div>
+</header>
+{{end}}
+{{if .Insecure}}<p class="banner-warn">{{.T "banner.insecure"}}</p>{{end}}
+<main class="container">
+{{if eq .Nav "admin"}}{{template "adminnav" .}}{{end}}
+{{if eq .Nav "inventory"}}{{template "invnav" .}}{{end}}
+{{if .Flash}}<p class="alert alert-ok">{{.Flash}}</p>{{end}}
+{{if .Error}}<p class="alert alert-error">{{.Error}}</p>{{end}}
+{{template "content" .}}
+</main>
+<footer class="footer">LANventory {{.Version}} · MIT · <a href="https://github.com/lan-dot-party/lanventory" rel="noopener noreferrer">GitHub</a></footer>
+</body>
+</html>{{end}}
+
+{{define "adminnav"}}
+<nav class="subnav">
+  <a href="/admin/users" {{if eq .Title (.T "users.title")}}class="active"{{end}}>{{.T "users.title"}}</a>
+  <a href="/admin/security" {{if eq .Title (.T "admin_security.title")}}class="active"{{end}}>{{.T "admin_security.title"}}</a>
+  <a href="/admin/tokens" {{if eq .Title (.T "admin_tokens.title")}}class="active"{{end}}>{{.T "admin_tokens.title"}}</a>
+  <a href="/admin/data" {{if eq .Title (.T "data.title")}}class="active"{{end}}>{{.T "data.title"}}</a>
+  <a href="/admin/audit" {{if eq .Title (.T "audit.title")}}class="active"{{end}}>{{.T "audit.title"}}</a>
+</nav>
+{{end}}
+
+{{define "invnav"}}
+<nav class="subnav">
+  <a href="/assets" {{if eq .Sub "assets"}}class="active"{{end}}>{{.T "assets.title"}}</a>
+  <a href="/locations" {{if eq .Sub "locations"}}class="active"{{end}}>{{.T "locations.title"}}</a>
+  <a href="/categories" {{if eq .Sub "categories"}}class="active"{{end}}>{{.T "categories.title"}}</a>
+  <a href="/inspections/due" {{if eq .Sub "due"}}class="active"{{end}}>{{.T "insp.due_title"}}</a>
+  <a href="/inspections" {{if eq .Sub "inspections"}}class="active"{{end}}>{{.T "insp.list_title"}}</a>
+</nav>
+{{end}}
+
+{{/* Row table of the import preview and result pages. */}}
+{{define "import_rows"}}{{$p := .P}}
+<div class="table-wrap">
+<table>
+  <thead><tr><th>{{$p.T "imp.row"}}</th><th>{{$p.T "imp.action"}}</th><th>{{$p.T "acol.inventory_no"}}</th><th>{{$p.T "acol.name"}}</th><th>{{$p.T "acol.category"}}</th><th>{{$p.T "imp.messages"}}</th></tr></thead>
+  <tbody>
+  {{range .Rows}}
+    <tr>
+      <td>{{.Row}}</td>
+      <td><span class="badge badge-imp-{{.Action}}">{{$p.T (print "imp.a." .Action)}}</span></td>
+      <td class="nowrap">{{.InventoryNo}}</td>
+      <td>{{.Name}}</td>
+      <td>{{.Category}}</td>
+      <td class="small">{{.Note}}{{range .Problems}}<div class="field-error">{{.Column}}{{if .Value}} (<code>{{.Value}}</code>){{end}}: {{.Message}}</div>{{end}}</td>
+    </tr>
+  {{else}}<tr><td colspan="6" class="muted">{{$p.T "imp.no_rows"}}</td></tr>{{end}}
+  </tbody>
+</table>
+</div>
+{{end}}

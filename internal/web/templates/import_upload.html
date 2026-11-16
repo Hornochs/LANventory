@@ -1,0 +1,23 @@
+{{define "content"}}
+{{$d := .Data}}
+<h1>{{.T "imp.title"}}</h1>
+<section class="card">
+  <p>{{.T "imp.intro"}}</p>
+  <p class="muted small">{{.T "imp.hint_export"}}</p>
+  {{if .Can "admin"}}<p class="muted small">{{.T "imp.hint_data"}} <a href="/admin/data">{{.T "data.title"}}</a></p>{{end}}
+  <form method="post" action="/assets/import" enctype="multipart/form-data" class="form-grid">
+    <input type="hidden" name="_csrf" value="{{.CSRF}}">
+    <label>{{.T "imp.file"}} ({{.T "imp.max_size" $d.MaxMB}})
+      <input type="file" name="file" accept=".csv,.txt,text/csv,text/plain" required>
+    </label>
+    <label>{{.T "imp.delimiter"}}
+      <select name="delimiter">{{range $d.Delimiters}}<option value="{{.}}">{{$.T (print "imp.delim." .)}}</option>{{end}}</select>
+    </label>
+    <label>{{.T "imp.encoding"}}
+      <select name="encoding">{{range $d.Encodings}}<option value="{{.}}">{{$.T (print "imp.enc." .)}}</option>{{end}}</select>
+    </label>
+    <div class="actions"><button type="submit" class="primary">{{.T "imp.upload"}}</button> <a class="button" href="/assets">{{.T "action.cancel"}}</a></div>
+  </form>
+  <p class="muted small">{{.T "imp.header_required"}}</p>
+</section>
+{{end}}

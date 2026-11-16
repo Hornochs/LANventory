@@ -1,0 +1,100 @@
+{{define "content"}}
+{{$c := .Data.Category}}
+<h1>{{$c.Name}}{{if $c.Prefix}} <code>{{$c.Prefix}}</code>{{end}}</h1>
+<p><a href="/categories">← {{.T "categories.title"}}</a> · <a href="/assets?category={{$c.ID}}">{{.T "col.assets"}}: {{$c.AssetCount}}</a></p>
+
+<section class="card">
+  <h3>{{.T "cat.settings"}}</h3>
+  {{if .Can "admin"}}
+  <form method="post" action="/categories/{{$c.ID}}" class="form-grid">
+    <input type="hidden" name="_csrf" value="{{.CSRF}}">
+    <label>{{.T "col.name"}}<input name="name" value="{{$c.Name}}" required maxlength="64"></label>
+    <label>{{.T "cat.prefix"}}<input name="prefix" value="{{$c.Prefix}}" maxlength="8" pattern="[A-Za-z0-9]{0,8}" placeholder="{{.T "cat.no_prefix"}}"></label>
+    <label>{{.T "cat.interval"}}<input name="interval" type="number" min="1" max="120" value="{{$c.DGUVIntervalMonths}}"></label>
+    <label class="check"><input type="checkbox" name="dguv_required" value="1"{{if $c.DGUVRequired}} checked{{end}}> {{.T "cat.dguv_required"}}</label>
+    <div class="actions"><button type="submit" class="primary">{{.T "action.save"}}</button></div>
+  </form>
+  <p class="muted small">{{.T "cat.prefix_hint"}}</p>
+  {{else}}
+  <table class="kv">
+    <tr><th>{{.T "cat.prefix"}}</th><td>{{if $c.Prefix}}<code>{{$c.Prefix}}</code>{{else}}<span class="muted">{{.T "cat.no_prefix"}}</span>{{end}}</td></tr>
+    <tr><th>{{.T "cat.dguv"}}</th><td>{{if $c.DGUVRequired}}{{.T "cat.dguv_months" $c.DGUVIntervalMonths}}{{else}}–{{end}}</td></tr>
+  </table>
+  {{end}}
+</section>
+
+<section class="card">
+  <h3>{{.T "cat.fields"}}</h3>
+  <table>
+    <thead><tr><th>{{.T "field.label"}}</th><th>{{.T "field.key"}}</th><th>{{.T "field.type"}}</th><th>{{.T "field.unit"}}</th><th>{{.T "field.options"}}</th><th>{{.T "field.required"}}</th>{{if .Can "admin"}}<th></th>{{end}}</tr></thead>
+    <tbody>
+    {{range .Data.Fields}}
+      <tr>
+        <td>{{.Label}}</td><td><code>{{.Key}}</code></td><td>{{$.T (print "ftype." .Type)}}</td><td>{{.Unit}}</td>
+        <td class="small">{{range $i, $o := .Options}}{{if $i}}, {{end}}{{$o}}{{end}}</td>
+        <td>{{if .Required}}{{$.T "yes"}}{{else}}–{{end}}</td>
+        {{if $.Can "admin"}}
+        <td class="nowrap">
+          <form method="post" action="/categories/{{.CategoryID}}/fields/{{.ID}}/move" class="inline-form">
+            <input type="hidden" name="_csrf" value="{{$.CSRF}}"><input type="hidden" name="dir" value="up">
+            <button class="mini" type="submit" title="{{$.T "field.up"}}" aria-label="{{$.T "field.up"}}">↑</button>
+          </form>
+          <form method="post" action="/categories/{{.CategoryID}}/fields/{{.ID}}/move" class="inline-form">
+            <input type="hidden" name="_csrf" value="{{$.CSRF}}"><input type="hidden" name="dir" value="down">
+            <button class="mini" type="submit" title="{{$.T "field.down"}}" aria-label="{{$.T "field.down"}}">↓</button>
+          </form>
+          <form method="post" action="/categories/{{.CategoryID}}/fields/{{.ID}}/delete" class="inline-form" data-confirm="{{$.T "field.delete_confirm" .Label}}">
+            <input type="hidden" name="_csrf" value="{{$.CSRF}}"><button class="link danger-text" type="submit">{{$.T "action.delete"}}</button>
+          </form>
+        </td>
+        {{end}}
+      </tr>
+      {{if $.Can "admin"}}
+      <tr><td colspan="7">
+        <details>
+          <summary class="small">{{$.T "field.edit"}}: {{.Label}}</summary>
+          <form method="post" action="/categories/{{.CategoryID}}/fields/{{.ID}}" class="form-grid">
+            <input type="hidden" name="_csrf" value="{{$.CSRF}}">
+            <label>{{$.T "field.label"}}<input name="label" value="{{.Label}}" required maxlength="64"></label>
+            <label>{{$.T "field.type"}}
+              {{$t := .Type}}<select name="type">{{range ftypes}}<option value="{{.}}"{{if eq . $t}} selected{{end}}>{{$.T (print "ftype." .)}}</option>{{end}}</select>
+            </label>
+            <label>{{$.T "field.unit"}}<input name="unit" value="{{.Unit}}" maxlength="16"></label>
+            <label>{{$.T "field.options"}}<textarea name="options" rows="3">{{range $i, $o := .Options}}{{if $i}}
+{{end}}{{$o}}{{end}}</textarea></label>
+            <label class="check"><input type="checkbox" name="required" value="1"{{if .Required}} checked{{end}}> {{$.T "field.required"}}</label>
+            <div class="actions"><button type="submit" class="primary">{{$.T "action.save"}}</button></div>
+          </form>
+        </details>
+      </td></tr>
+      {{end}}
+    {{else}}<tr><td colspan="7" class="muted">{{$.T "cat.no_fields"}}</td></tr>{{end}}
+    </tbody>
+  </table>
+  <p class="muted small">{{.T "field.hint"}}</p>
+</section>
+
+{{if .Can "admin"}}
+<section class="card">
+  <h3>{{.T "field.add"}}</h3>
+  <form method="post" action="/categories/{{$c.ID}}/fields" class="form-grid">
+    <input type="hidden" name="_csrf" value="{{.CSRF}}">
+    <label>{{.T "field.label"}}<input name="label" required maxlength="64"></label>
+    <label>{{.T "field.key"}}<input name="key" required maxlength="32" pattern="[a-z][a-z0-9_]{0,31}"></label>
+    <label>{{.T "field.type"}}<select name="type">{{range ftypes}}<option value="{{.}}">{{$.T (print "ftype." .)}}</option>{{end}}</select></label>
+    <label>{{.T "field.unit"}}<input name="unit" maxlength="16"></label>
+    <label>{{.T "field.options"}}<textarea name="options" rows="3"></textarea></label>
+    <label class="check"><input type="checkbox" name="required" value="1"> {{.T "field.required"}}</label>
+    <div class="actions"><button type="submit" class="primary">{{.T "field.add"}}</button></div>
+  </form>
+  <p class="muted small">{{.T "field.options_hint"}}</p>
+</section>
+<section class="card danger-zone">
+  <form method="post" action="/categories/{{$c.ID}}/delete" data-confirm="{{.T "cat.delete_confirm" $c.Name}}">
+    <input type="hidden" name="_csrf" value="{{.CSRF}}">
+    <button type="submit" class="danger">{{.T "cat.delete"}}</button>
+    <span class="muted small">{{.T "cat.delete_hint"}}</span>
+  </form>
+</section>
+{{end}}
+{{end}}

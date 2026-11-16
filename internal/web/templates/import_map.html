@@ -1,0 +1,60 @@
+{{define "content"}}
+{{$d := .Data}}
+<h1>{{.T "imp.title"}}: {{.T "imp.step_map"}}</h1>
+<p class="muted small">{{.T "imp.detected" $d.Rows $d.Delimiter $d.Encoding}}</p>
+<form method="post" action="/assets/import/preview">
+  <input type="hidden" name="_csrf" value="{{.CSRF}}">
+  <input type="hidden" name="token" value="{{$d.Token}}">
+  <section class="card">
+    <h3>{{.T "imp.columns"}}</h3>
+    <div class="table-wrap">
+    <table>
+      <thead><tr><th>{{.T "imp.column"}}</th><th>{{.T "imp.samples"}}</th><th>{{.T "imp.target"}}</th></tr></thead>
+      <tbody>
+      {{range $d.Cols}}{{$t := .Target}}
+        <tr>
+          <td>{{if .Header}}{{.Header}}{{else}}<span class="muted">{{$.T "imp.column_n" .Number}}</span>{{end}}</td>
+          <td class="small muted">{{range .Samples}}<code>{{.}}</code> {{end}}</td>
+          <td><select name="map_{{.Index}}" aria-label="{{$.T "imp.target"}}">
+            <option value="">{{$.T "imp.ignore"}}</option>
+            {{range $d.CoreTargets}}<option value="{{.}}"{{if eq . $t}} selected{{end}}>{{$.T (print "imp.t." .)}}</option>{{end}}
+            {{range $d.InspectionTargets}}<option value="{{.}}"{{if eq . $t}} selected{{end}}>{{$.T (print "imp.t." .)}}</option>{{end}}
+            {{range $d.Fields}}{{$v := print "field:" .Key}}<option value="{{$v}}"{{if eq $v $t}} selected{{end}}>{{$.T "imp.field"}}: {{.Label}} ({{.Key}})</option>{{end}}
+          </select></td>
+        </tr>
+      {{end}}
+      </tbody>
+    </table>
+    </div>
+  </section>
+  <section class="card">
+    <h3>{{.T "imp.options"}}</h3>
+    <div class="form-grid">
+      <label>{{.T "imp.default_category"}}
+        <select name="default_category"><option value="">–</option>
+        {{range $d.Categories}}<option value="{{.ID}}"{{if eq .ID $d.Form.DefaultCategory}} selected{{end}}>{{.Name}}{{if .Prefix}} ({{.Prefix}}){{end}}</option>{{end}}</select>
+      </label>
+      <label>{{.T "imp.default_location"}}
+        <select name="default_location"><option value="">–</option>
+        {{range $d.Locations}}<option value="{{.ID}}"{{if eq .ID $d.Form.DefaultLocation}} selected{{end}}>{{.Name}}</option>{{end}}</select>
+      </label>
+      <label>{{.T "imp.mode"}}
+        <select name="on_error">
+          <option value="all"{{if not $d.Form.SkipInvalid}} selected{{end}}>{{.T "imp.mode_all"}}</option>
+          <option value="skip"{{if $d.Form.SkipInvalid}} selected{{end}}>{{.T "imp.mode_skip"}}</option>
+        </select>
+      </label>
+      <label>{{.T "imp.existing"}}
+        <select name="existing">
+          <option value="skip"{{if not $d.Form.Update}} selected{{end}}>{{.T "imp.existing_skip"}}</option>
+          <option value="update"{{if $d.Form.Update}} selected{{end}}>{{.T "imp.existing_update"}}</option>
+        </select>
+      </label>
+      <div><label class="check"><input type="hidden" name="create_locations" value="0"><input type="checkbox" name="create_locations" value="1"{{if $d.Form.CreateLocations}} checked{{end}}> {{.T "imp.create_locations"}}</label></div>
+    </div>
+    <p class="muted small">{{.T "imp.options_hint"}}</p>
+    <p class="muted small">{{.T "imp.hint_inspection"}}</p>
+    <div class="actions"><button type="submit" class="primary">{{.T "imp.preview"}}</button> <a class="button" href="/assets/import">{{.T "action.cancel"}}</a></div>
+  </section>
+</form>
+{{end}}

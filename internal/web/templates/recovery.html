@@ -1,0 +1,9 @@
+{{define "content"}}
+<h1>{{.T "recovery.title"}}</h1>
+<section class="card">
+  <p>{{.T "recovery.once"}}</p>
+  <ol class="recovery-codes">{{range .Data}}<li><code>{{.}}</code></li>{{end}}</ol>
+  <p class="muted small">{{.T "recovery.hint"}}</p>
+  <p><a class="button primary" href="/account/security">{{.T "recovery.done"}}</a></p>
+</section>
+{{end}}

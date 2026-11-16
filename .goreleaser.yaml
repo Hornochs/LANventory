@@ -1,0 +1,168 @@
+# GoReleaser configuration for LANventory.
+# Documentation: https://goreleaser.com
+#
+# Release flow: create and publish a release with a tag vX.Y.Z in the GitHub
+# web interface. .github/workflows/release.yml then builds, tests and attaches
+# everything below to that release.
+
+version: 2
+
+project_name: lanventory
+
+builds:
+  - id: lanventory
+    main: ./cmd/lanventory
+    binary: lanventory
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+    goarch:
+      - amd64
+      - arm64
+      - arm
+    goarm:
+      - "7"
+    flags:
+      - -trimpath
+    # Reproducible: the test job and the publish job build bit-identical binaries.
+    mod_timestamp: "{{ .CommitTimestamp }}"
+    ldflags:
+      - -s -w
+      - -X github.com/lan-dot-party/lanventory/pkg/version.Version={{.Version}}
+      - -X github.com/lan-dot-party/lanventory/pkg/version.Commit={{.ShortCommit}}
+      - -X github.com/lan-dot-party/lanventory/pkg/version.BuildDate={{.CommitDate}}
+
+archives:
+  - id: default
+    name_template: >-
+      {{ .ProjectName }}_
+      {{- .Version }}_
+      {{- .Os }}_
+      {{- if eq .Arch "amd64" }}x86_64
+      {{- else }}{{ .Arch }}{{ end }}
+      {{- if .Arm }}v{{ .Arm }}{{ end }}
+    files:
+      - README.md
+      - LICENSE
+      - docs/config.example.yaml
+      - packaging/lanventory.service
+
+nfpms:
+  - id: packages
+    package_name: lanventory
+    file_name_template: >-
+      {{ .PackageName }}_
+      {{- .Version }}_
+      {{- if eq .Arch "arm" }}armv7{{ else }}{{ .Arch }}{{ end }}
+    vendor: lan-dot-party
+    homepage: https://github.com/lan-dot-party/lanventory
+    maintainer: "LAN.party <gamie@lan.party>"
+    description: |-
+      Inventory system for LAN parties.
+      LANventory tracks assets with inventory numbers, categories and
+      configurable fields, and the DGUV V3 electrical inspections of equipment.
+    license: MIT
+    section: net
+    formats:
+      - deb
+      - rpm
+      - archlinux
+      - apk
+    bindir: /usr/bin
+    mtime: "{{ .CommitDate }}"
+    contents:
+      - src: packaging/config.yaml
+        dst: /etc/lanventory/config.yaml
+        type: config|noreplace
+        file_info:
+          mode: 0640
+      - src: packaging/lanventory.service
+        dst: /usr/lib/systemd/system/lanventory.service
+        file_info:
+          mode: 0644
+      - src: packaging/lanventory.sysusers
+        dst: /usr/lib/sysusers.d/lanventory.conf
+        file_info:
+          mode: 0644
+      - src: docs/config.example.yaml
+        dst: /usr/share/doc/lanventory/config.example.yaml
+        file_info:
+          mode: 0644
+      - src: README.md
+        dst: /usr/share/doc/lanventory/README.md
+        file_info:
+          mode: 0644
+      - src: docs/reverse-proxy.md
+        dst: /usr/share/doc/lanventory/reverse-proxy.md
+        file_info:
+          mode: 0644
+      - src: LICENSE
+        dst: /usr/share/licenses/lanventory/LICENSE
+        file_info:
+          mode: 0644
+    scripts:
+      postinstall: packaging/scripts/postinstall.sh
+      preremove: packaging/scripts/preremove.sh
+      postremove: packaging/scripts/postremove.sh
+    overrides:
+      deb:
+        dependencies:
+          - ca-certificates
+      rpm:
+        dependencies:
+          - ca-certificates
+      archlinux:
+        dependencies:
+          - ca-certificates
+    archlinux:
+      packager: lan-dot-party
+
+checksum:
+  name_template: "SHA256SUMS"
+  algorithm: sha256
+
+snapshot:
+  version_template: "{{ incpatch .Version }}-next"
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+      - "^chore:"
+      - Merge pull request
+      - Merge branch
+
+# The repository is taken from the git remote / GITHUB_REPOSITORY, so the
+# workflow also works in forks.
+release:
+  # The release (and its notes) is created in the web interface; only add files.
+  mode: keep-existing
+  replace_existing_artifacts: true
+  prerelease: auto
+
+# One multi-arch image (amd64, arm64, armv7) on ghcr.io under the owner of the
+# repository that builds it (ghcr.io/<owner>/lanventory).
+dockers_v2:
+  - id: lanventory
+    ids: [lanventory]
+    dockerfile: Dockerfile.goreleaser
+    images:
+      - 'ghcr.io/{{ envOrDefault "GITHUB_REPOSITORY_OWNER" "lan-dot-party" | tolower }}/lanventory'
+    tags:
+      - "{{ .Version }}"
+      - "{{ if not .Prerelease }}latest{{ end }}"
+    platforms:
+      - linux/amd64
+      - linux/arm64
+      - linux/arm/v7
+    extra_files:
+      - packaging/docker-config.yaml
+    labels:
+      org.opencontainers.image.title: LANventory
+      org.opencontainers.image.version: "{{ .Version }}"
+      org.opencontainers.image.revision: "{{ .FullCommit }}"
+      org.opencontainers.image.source: https://github.com/lan-dot-party/lanventory
+      org.opencontainers.image.licenses: MIT

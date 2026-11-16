@@ -1,0 +1,61 @@
+{{define "content"}}
+{{$d := .Data}}
+{{$r := $d.Result}}
+<h1>{{.T "data.title"}}: {{.T "data.preview"}}</h1>
+<section class="card">
+  <p>{{.T "data.file_has" $d.FLocations $d.FCategories $d.FAssets $d.FInspections}}</p>
+  <h3>{{.T "data.will_create"}}</h3>
+  <p>
+    <span class="badge badge-ok">{{.T "data.locations"}}: {{$r.LocationsCreated}}</span>
+    <span class="badge badge-ok">{{.T "data.categories"}}: {{$r.CategoriesCreated}}</span>
+    {{if $r.CategoriesUpdated}}<span class="badge badge-ok">{{.T "data.categories_updated"}}: {{$r.CategoriesUpdated}}</span>{{end}}
+    <span class="badge badge-ok">{{.T "data.fields"}}: {{$r.FieldsCreated}}</span>
+    {{if $r.FieldsUpdated}}<span class="badge badge-ok">{{.T "data.fields_updated"}}: {{$r.FieldsUpdated}}</span>{{end}}
+    <span class="badge badge-ok">{{.T "data.options"}}: {{$r.OptionsAdded}}</span>
+    <span class="badge badge-ok">{{.T "data.assets"}}: {{$r.AssetsCreated}}</span>
+    <span class="badge badge-ok">{{.T "data.inspections"}}: {{$r.InspectionsCreated}}</span>
+    <span class="badge badge-muted">{{.T "data.skipped"}}: {{len $r.SkippedAssets}}</span>
+  </p>
+  <form method="post" action="/admin/data/preview" class="stack">
+    <input type="hidden" name="_csrf" value="{{.CSRF}}"><input type="hidden" name="token" value="{{$d.Token}}">
+    <fieldset class="radio-list">
+      <legend>{{.T "data.on_conflict"}}</legend>
+      <label class="check"><input type="radio" name="on_conflict" value="skip"{{if ne $d.OnConflict "abort"}} checked{{end}}> {{.T "data.oc_skip"}}</label>
+      <label class="check"><input type="radio" name="on_conflict" value="abort"{{if eq $d.OnConflict "abort"}} checked{{end}}> {{.T "data.oc_abort"}}</label>
+    </fieldset>
+    <div><label class="check"><input type="hidden" name="update_categories" value="0"><input type="checkbox" name="update_categories" value="1"{{if $d.UpdateCategories}} checked{{end}}> {{.T "data.update_categories"}}</label>
+      <p class="muted small">{{.T "data.update_categories_hint"}}</p></div>
+    <div class="actions">
+      <button type="submit">{{.T "data.recheck"}}</button>
+      <button type="submit" class="primary" formaction="/admin/data/confirm" {{if not $d.CanImport}}disabled{{end}}>{{.T "data.confirm"}}</button>
+      <a class="button" href="/admin/data">{{.T "action.cancel"}}</a>
+    </div>
+  </form>
+  {{if not $d.CanImport}}{{if not $d.Errors}}<p class="muted">{{.T "data.nothing"}}</p>{{end}}{{end}}
+</section>
+{{if $d.Errors}}
+<section class="card">
+  <h3>{{.T "data.errors"}}</h3>
+  {{if gt $r.ErrorCount (len $d.Errors)}}<p class="muted small">{{.T "data.errors_more" $r.ErrorCount}}</p>{{end}}
+  <table class="table">
+    <thead><tr><th>{{.T "data.col_path"}}</th><th>{{.T "data.col_problem"}}</th></tr></thead>
+    <tbody>{{range $d.Errors}}<tr><td><code>{{.Path}}</code></td><td>{{.Message}}</td></tr>{{end}}</tbody>
+  </table>
+</section>
+{{end}}
+{{if $d.Warnings}}
+<section class="card">
+  <h3>{{.T "data.warnings"}}</h3>
+  <table class="table">
+    <thead><tr><th>{{.T "data.col_path"}}</th><th>{{.T "data.col_problem"}}</th></tr></thead>
+    <tbody>{{range $d.Warnings}}<tr><td><code>{{.Path}}</code></td><td>{{.Message}}</td></tr>{{end}}</tbody>
+  </table>
+</section>
+{{end}}
+{{if $d.Skipped}}
+<section class="card">
+  <h3>{{.T "data.skipped"}}</h3>
+  <p>{{range $i, $n := $d.Skipped}}{{if $i}}, {{end}}<code>{{$n}}</code>{{end}}{{if $d.SkippedMore}} {{.T "data.skipped_more" $d.SkippedMore}}{{end}}</p>
+</section>
+{{end}}
+{{end}}

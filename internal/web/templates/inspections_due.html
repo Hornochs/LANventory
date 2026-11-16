@@ -1,0 +1,51 @@
+{{define "content"}}
+{{$d := .Data}}
+<div class="page-head"><h1>{{.T "insp.due_title"}}</h1></div>
+<p class="muted">{{.T "insp.due_hint" 30}}</p>
+<form id="filters" class="card filters" method="get" action="/inspections/due" hx-get="/inspections/due" hx-target="#results" hx-push-url="true"
+  hx-trigger="change changed, submit">
+  <label>{{.T "acol.category"}}
+    <select name="category"><option value="">{{.T "filter.all"}}</option>
+    {{range $d.Categories}}<option value="{{.ID}}"{{if eq .ID $d.CategoryID}} selected{{end}}>{{.Name}}</option>{{end}}</select>
+  </label>
+  <label>{{.T "acol.location"}}
+    <select name="location"><option value="">{{.T "filter.all"}}</option>
+    {{range $d.Locations}}<option value="{{.ID}}"{{if eq .ID $d.LocationID}} selected{{end}}>{{.Name}}</option>{{end}}</select>
+  </label>
+  <label>{{.T "insp.state"}}
+    <select name="state"><option value="">{{.T "filter.all"}}</option>
+    {{range $d.States}}<option value="{{.}}"{{if eq . $d.State}} selected{{end}}>{{$.T (print "dstate." .)}}</option>{{end}}</select>
+  </label>
+  <div class="actions"><button type="submit" class="primary">{{.T "filter.apply"}}</button>{{if $d.Filtered}} <a class="button" href="/inspections/due">{{.T "filter.reset"}}</a>{{end}}</div>
+</form>
+<section class="card">
+  <div id="results" aria-live="polite">{{template "due_results" .}}</div>
+</section>
+{{end}}
+
+{{define "due_results"}}{{$d := .Data}}
+<p class="muted small">{{.T "assets.count" (len $d.Rows)}}</p>
+<div class="table-wrap">
+<table class="assets">
+  <thead><tr>
+    <th>{{.T "acol.inventory_no"}}</th><th>{{.T "acol.name"}}</th><th>{{.T "acol.category"}}</th><th>{{.T "acol.location"}}</th>
+    <th>{{.T "acol.status"}}</th><th>{{.T "insp.last"}}</th><th>{{.T "insp.col.next_due"}}</th><th>{{.T "insp.state"}}</th><th></th>
+  </tr></thead>
+  <tbody>
+  {{range $d.Rows}}
+    <tr>
+      <td class="nowrap"><a href="/assets/{{.AssetID}}">{{.InventoryNo}}</a></td>
+      <td>{{.Name}}</td>
+      <td>{{.CategoryName}}</td>
+      <td>{{.LocationName}}</td>
+      <td><span class="badge badge-{{.Status}}">{{$.T (print "status." .Status)}}</span></td>
+      <td class="nowrap">{{if .LastInspected}}{{date $.Lang .LastInspected}}{{else}}–{{end}}</td>
+      <td class="nowrap">{{if .NextDue}}{{date $.Lang .NextDue}}{{else}}–{{end}}</td>
+      <td><span class="badge badge-due-{{.State}}">{{$.T (print "dstate." .State)}}</span></td>
+      <td>{{if $.User.CanInspect}}<a href="/assets/{{.AssetID}}/inspections/new">{{$.T "insp.record"}}</a>{{end}}</td>
+    </tr>
+  {{else}}<tr><td colspan="9" class="muted">{{$.T "insp.none_due"}}</td></tr>{{end}}
+  </tbody>
+</table>
+</div>
+{{end}}

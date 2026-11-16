@@ -1,0 +1,70 @@
+{{define "content"}}
+{{$d := .Data}}{{$a := $d.Asset}}
+<h1>{{.T "insp.record"}}: <a href="/assets/{{$a.ID}}"><code>{{$a.InventoryNo}}</code> {{$a.Name}}</a></h1>
+<p class="muted">{{.T "insp.interval_info" $d.Interval}}</p>
+<form method="post" class="card" action="/assets/{{$a.ID}}/inspections">
+  <input type="hidden" name="_csrf" value="{{.CSRF}}">
+  <div class="form-grid">
+    <label>{{.T "insp.col.date"}} *<input type="date" name="inspected_on" value="{{index $d.V "inspected_on"}}" required data-calib-date>
+      {{with index $d.Err "inspected_on"}}<span class="field-error">{{.}}</span>{{end}}</label>
+    <label>{{.T "insp.col.inspector"}} *<input name="inspector_name" value="{{index $d.V "inspector_name"}}" required maxlength="100">
+      {{with index $d.Err "inspector_name"}}<span class="field-error">{{.}}</span>{{end}}</label>
+    {{$res := index $d.V "result"}}
+    <label>{{.T "insp.col.result"}} *
+      <select name="result" required><option value="">–</option>
+        <option value="pass"{{if eq $res "pass"}} selected{{end}}>{{.T "result.pass"}}</option>
+        <option value="fail"{{if eq $res "fail"}} selected{{end}}>{{.T "result.fail"}}</option></select>
+      {{with index $d.Err "result"}}<span class="field-error">{{.}}</span>{{end}}</label>
+    {{$rs := index $d.V "reason"}}
+    <label>{{.T "insp.reason"}}
+      <select name="reason"><option value="">–</option>
+        {{range $d.Reasons}}<option value="{{.}}"{{if eq . $rs}} selected{{end}}>{{$.T (print "reason." .)}}</option>{{end}}</select>
+      {{with index $d.Err "reason"}}<span class="field-error">{{.}}</span>{{end}}</label>
+    {{$pc := index $d.V "protection_class"}}
+    <label>{{.T "insp.class"}}
+      <select name="protection_class"><option value="">–</option>
+        {{range $d.Classes}}<option value="{{.}}"{{if eq . $pc}} selected{{end}}>{{.}}</option>{{end}}</select>
+      {{with index $d.Err "protection_class"}}<span class="field-error">{{.}}</span>{{end}}</label>
+    <div><label class="check"><input type="checkbox" name="visual_ok" value="1"{{if eq (index $d.V "visual_ok") "1"}} checked{{end}}> {{.T "insp.visual_ok"}}</label></div>
+    <div><label class="check"><input type="checkbox" name="function_ok" value="1"{{if eq (index $d.V "function_ok") "1"}} checked{{end}}> {{.T "insp.function_ok"}}</label></div>
+  </div>
+  <h3>{{.T "insp.measurements"}}</h3>
+  <p class="muted small">{{.T "insp.qualifier_hint"}}</p>
+  <div class="form-grid">
+    <label>{{.T "insp.pe"}} (Ω)<input name="pe_resistance_ohm" inputmode="decimal" value="{{index $d.V "pe_resistance_ohm"}}" maxlength="26">
+      <span class="muted small">{{.T "insp.hint_pe" (num $.Lang $d.LimitPE)}}</span>
+      {{with index $d.Err "pe_resistance_ohm"}}<span class="field-error">{{.}}</span>{{end}}</label>
+    <label>{{.T "insp.insulation"}} (MΩ)<input name="insulation_mohm" inputmode="decimal" value="{{index $d.V "insulation_mohm"}}" maxlength="26">
+      <span class="muted small">{{.T "insp.hint_ins" (num $.Lang $d.LimitIns1) (num $.Lang $d.LimitIns2)}}</span>
+      {{with index $d.Err "insulation_mohm"}}<span class="field-error">{{.}}</span>{{end}}</label>
+    <label>{{.T "insp.leakage"}} (mA)<input name="leakage_ma" inputmode="decimal" value="{{index $d.V "leakage_ma"}}" maxlength="26">
+      <span class="muted small">{{.T "insp.hint_leak" (num $.Lang $d.LimitLeak)}}</span>
+      {{with index $d.Err "leakage_ma"}}<span class="field-error">{{.}}</span>{{end}}</label>
+    {{$lm := index $d.V "leakage_method"}}
+    <label>{{.T "insp.leakage_method"}}
+      <select name="leakage_method"><option value="">–</option>
+        {{range $d.Methods}}<option value="{{.}}"{{if eq . $lm}} selected{{end}}>{{$.T (print "method." .)}}</option>{{end}}</select>
+      {{with index $d.Err "leakage_method"}}<span class="field-error">{{.}}</span>{{end}}</label>
+    <label>{{.T "insp.touch"}} (mA)<input name="touch_ma" inputmode="decimal" value="{{index $d.V "touch_ma"}}" maxlength="26">
+      <span class="muted small">{{.T "insp.hint_touch" (num $.Lang $d.LimitTouch)}}</span>
+      {{with index $d.Err "touch_ma"}}<span class="field-error">{{.}}</span>{{end}}</label>
+  </div>
+  <h3>{{.T "insp.sec_test_device"}}</h3>
+  <div class="form-grid">
+    <label>{{.T "insp.test_device"}}<input name="test_device" value="{{index $d.V "test_device"}}" maxlength="100">
+      {{with index $d.Err "test_device"}}<span class="field-error">{{.}}</span>{{end}}</label>
+    <label>{{.T "insp.test_device_id"}}<input name="test_device_id" value="{{index $d.V "test_device_id"}}" maxlength="100">
+      {{with index $d.Err "test_device_id"}}<span class="field-error">{{.}}</span>{{end}}</label>
+    <label>{{.T "insp.calibrated_until"}}<input type="date" name="test_device_calibrated_until" value="{{index $d.V "test_device_calibrated_until"}}" data-calib-until>
+      {{with index $d.Err "test_device_calibrated_until"}}<span class="field-error">{{.}}</span>{{end}}</label>
+  </div>
+  <p class="alert alert-warn" data-calib-hint{{if not $d.CalibExpired}} hidden{{end}}>{{.T "insp.calib_expired"}}</p>
+  <p class="muted small">{{.T "insp.guidance_note"}}</p>
+  <label>{{.T "insp.remark"}}<textarea name="remark" rows="3" maxlength="2000">{{index $d.V "remark"}}</textarea>
+    {{with index $d.Err "remark"}}<span class="field-error">{{.}}</span>{{end}}</label>
+  {{if $d.ShowDefective}}<p><label class="check"><input type="checkbox" name="set_defective" value="1"{{if eq (index $d.V "set_defective") "1"}} checked{{end}}> {{.T "insp.set_defective"}}</label></p>{{end}}
+  {{if $d.ShowActive}}<p><label class="check"><input type="checkbox" name="set_active" value="1"{{if eq (index $d.V "set_active") "1"}} checked{{end}}> {{.T "insp.set_active"}}</label></p>{{end}}
+  <p class="muted small">{{.T "insp.no_edit"}}</p>
+  <div class="actions"><button type="submit" class="primary">{{.T "action.save"}}</button> <a class="button" href="/assets/{{$a.ID}}">{{.T "action.cancel"}}</a></div>
+</form>
+{{end}}

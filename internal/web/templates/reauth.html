@@ -1,0 +1,21 @@
+{{define "content"}}
+<section class="login card">
+  <h1>{{.T "reauth.title"}}</h1>
+  <p class="muted small">{{.T "reauth.hint"}}</p>
+  {{if .Data.Passkeys}}
+  <div data-passkey-support hidden>
+    <button type="button" class="primary wide" data-passkey="get" data-msg-cancel="{{.T "error.passkey_cancelled"}}"
+      data-options="/reauth/passkey/options" data-finish="/reauth/passkey/finish?next={{urlquery .Data.Next}}">{{.T "mfa.use_passkey"}}</button>
+    <p class="alert alert-error" data-passkey-error hidden></p>
+    <p class="divider"><span>{{.T "login.or"}}</span></p>
+  </div>
+  {{end}}
+  <form method="post" action="/reauth">
+    <input type="hidden" name="_csrf" value="{{.CSRF}}">
+    <input type="hidden" name="next" value="{{.Data.Next}}">
+    <label>{{.T "login.password"}}<input name="password" type="password" autocomplete="current-password" required></label>
+    {{if .Data.MFA}}<label>{{.T "reauth.code"}}<input name="code" autocomplete="one-time-code" required maxlength="16"></label>{{end}}
+    <button type="submit" class="{{if .Data.Passkeys}}secondary{{else}}primary{{end}}">{{.T "reauth.submit"}}</button>
+  </form>
+</section>
+{{end}}

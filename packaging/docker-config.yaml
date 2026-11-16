@@ -1,0 +1,12 @@
+# LANventory configuration in the Docker image. Mount your own file to
+# /etc/lanventory/config.yaml, or set LANVENTORY_PUBLIC_URL.
+listen: 0.0.0.0:9060
+public_url: http://localhost:9060
+trusted_proxies: [127.0.0.1, "::1"]
+# Lives in the data volume and is created on first start.
+secret_key_file: /var/lib/lanventory/secret.key
+storage:
+  path: /var/lib/lanventory/lanventory.db
+log:
+  level: info
+  format: text

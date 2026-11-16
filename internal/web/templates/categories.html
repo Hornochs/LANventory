@@ -1,0 +1,32 @@
+{{define "content"}}
+<h1>{{.T "categories.title"}}</h1>
+<section class="card">
+  <table>
+    <thead><tr><th>{{.T "col.name"}}</th><th>{{.T "cat.prefix"}}</th><th>{{.T "cat.dguv"}}</th><th class="num">{{.T "col.assets"}}</th></tr></thead>
+    <tbody>
+    {{range .Data.Categories}}
+      <tr>
+        <td><a href="/categories/{{.ID}}">{{.Name}}</a></td>
+        <td>{{if .Prefix}}<code>{{.Prefix}}</code>{{else}}<span class="muted">–</span>{{end}}</td>
+        <td>{{if .DGUVRequired}}{{$.T "cat.dguv_months" .DGUVIntervalMonths}}{{else}}–{{end}}</td>
+        <td class="num"><a href="/assets?category={{.ID}}">{{.AssetCount}}</a></td>
+      </tr>
+    {{else}}<tr><td colspan="4" class="muted">{{$.T "categories.none"}}</td></tr>{{end}}
+    </tbody>
+  </table>
+</section>
+{{if .Can "admin"}}
+<section class="card">
+  <h3>{{.T "categories.add"}}</h3>
+  <form method="post" action="/categories" class="form-grid">
+    <input type="hidden" name="_csrf" value="{{.CSRF}}">
+    <label>{{.T "col.name"}}<input name="name" required maxlength="64"></label>
+    <label>{{.T "cat.prefix"}}<input name="prefix" maxlength="8" pattern="[A-Za-z0-9]{0,8}" placeholder="{{.T "cat.no_prefix"}}"></label>
+    <label>{{.T "cat.interval"}}<input name="interval" type="number" min="1" max="120" value="12"></label>
+    <label class="check"><input type="checkbox" name="dguv_required" value="1"> {{.T "cat.dguv_required"}}</label>
+    <div class="actions"><button type="submit" class="primary">{{.T "categories.add"}}</button></div>
+  </form>
+  <p class="muted small">{{.T "cat.hint"}}</p>
+</section>
+{{end}}
+{{end}}
