@@ -1,0 +1,991 @@
+openapi: 3.1.0
+info:
+  title: LANventory API
+  version: "1.0"
+  summary: Inventory of LAN party equipment with DGUV V3 inspections.
+  description: |
+    LANventory manages assets (single physical items) with an inventory number, a category with
+    configurable fields, a location and a status, and records DGUV V3 electrical inspections.
+    This API is the JSON interface to the same data and rules as the web UI.
+
+    Authentication: send `Authorization: Bearer lvk_...`. Tokens are created in the web UI under
+    Account > API tokens; the secret is shown once. A token acts as its owner with at most the
+    owner's current role, limited by its scopes: `read:assets` (locations, categories, assets),
+    `write:assets` (create, update and delete assets and locations; deleting an asset needs an
+    admin owner; categories are read-only in v1), `read:inspections`, `write:inspections` (record
+    inspections; needs an owner with the can_inspect flag; deleting one needs an admin owner).
+    A logged-in browser session also works (role based like the UI); unsafe methods then need the
+    header `X-CSRF-Token` and a same-origin request.
+
+    Conventions:
+    - JSON with snake_case names. Timestamps are RFC 3339 in UTC, dates are `YYYY-MM-DD`,
+      numbers are JSON numbers. Custom field values are in the object `fields` keyed by the field
+      key: number fields as numbers, bool fields as booleans, text, date and select as strings.
+    - Lists return `{items, page, per_page, total}` and take `page` (from 1) and `per_page`
+      (default 50, maximum 200). A page past the end is empty.
+    - Errors are RFC 9457 `application/problem+json` with a stable `code`. Invalid values yield
+      HTTP 422 `validation_failed` with `errors`, a map from field name to a short code
+      (`required`, `too_long`, `taken`, `invalid_date`, `invalid_option`, `immutable`, ...);
+      custom fields are named `fields.<key>`.
+    - Updates are partial (PATCH): only the sent properties change. `null` clears optional values.
+    - Every change is written to the audit log with the token's owner as actor and `via: api`.
+    - The rate limit applies per token (HTTP 429, `Retry-After`).
+  license:
+    name: MIT
+    identifier: MIT
+servers:
+  - url: /
+security:
+  - bearer: []
+tags:
+  - name: locations
+  - name: categories
+  - name: assets
+  - name: inspections
+  - name: account
+
+paths:
+  /api/v1/me:
+    get:
+      tags: [account]
+      operationId: getMe
+      summary: Who am I
+      x-required: "any valid token or session"
+      description: |
+        Returns the acting user, how the request was authenticated and the scopes that are effective right now.
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/Me"}
+              example: {user: {id: 3, username: alice, role: editor, can_inspect: true}, auth: token, token: {id: 7, name: label-printer, prefix: lvk_ab12, scopes: [read:assets, write:assets], expires_at: null}, effective_scopes: [read:assets, write:assets]}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "429": {$ref: "#/components/responses/TooManyRequests"}
+        "500": {$ref: "#/components/responses/InternalError"}
+      x-codeSamples:
+        - lang: curl
+          source: "curl -H \"Authorization: Bearer $TOKEN\" \"https://inventory.example/api/v1/me\""
+  /api/v1/locations:
+    get:
+      tags: [locations]
+      operationId: listLocations
+      summary: List locations
+      x-required: "scope read:assets"
+      description: |
+        Locations are a flat list, ordered by name.
+      parameters:
+        - {$ref: "#/components/parameters/page"}
+        - {$ref: "#/components/parameters/per_page"}
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/LocationList"}
+        "400": {$ref: "#/components/responses/BadRequest"}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "403": {$ref: "#/components/responses/Forbidden"}
+        "429": {$ref: "#/components/responses/TooManyRequests"}
+        "500": {$ref: "#/components/responses/InternalError"}
+      x-codeSamples:
+        - lang: curl
+          source: "curl -H \"Authorization: Bearer $TOKEN\" \"https://inventory.example/api/v1/locations\""
+    post:
+      tags: [locations]
+      operationId: createLocation
+      summary: Create a location
+      x-required: "scope write:assets, role editor"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: "#/components/schemas/LocationInput"}
+            example: {name: "Storage 3", description: ""}
+      responses:
+        "201":
+          description: Created; the Location header has the URL
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/Location"}
+              example: {id: 1, name: "Storage 1", description: "Basement", asset_count: 42, created_at: "2026-11-01T10:00:00Z", updated_at: "2026-11-01T10:00:00Z"}
+        "400": {$ref: "#/components/responses/BadRequest"}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "403": {$ref: "#/components/responses/Forbidden"}
+        "415": {$ref: "#/components/responses/UnsupportedMediaType"}
+        "422": {$ref: "#/components/responses/ValidationFailed"}
+        "429": {$ref: "#/components/responses/TooManyRequests"}
+        "500": {$ref: "#/components/responses/InternalError"}
+      x-codeSamples:
+        - lang: curl
+          source: "curl -X POST -H \"Authorization: Bearer $TOKEN\" -H \"Content-Type: application/json\" -d '{\"name\":\"Storage 3\"}' https://inventory.example/api/v1/locations"
+  /api/v1/locations/{id}:
+    get:
+      tags: [locations]
+      operationId: getLocation
+      summary: Get a location
+      x-required: "scope read:assets"
+      parameters:
+        - {name: id, in: path, required: true, schema: {type: integer, minimum: 1}}
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/Location"}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "403": {$ref: "#/components/responses/Forbidden"}
+        "404": {$ref: "#/components/responses/NotFound"}
+        "429": {$ref: "#/components/responses/TooManyRequests"}
+        "500": {$ref: "#/components/responses/InternalError"}
+    patch:
+      tags: [locations]
+      operationId: updateLocation
+      summary: Change a location
+      x-required: "scope write:assets, role editor"
+      parameters:
+        - {name: id, in: path, required: true, schema: {type: integer, minimum: 1}}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: "#/components/schemas/LocationInput"}
+            example: {description: "Basement, left"}
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/Location"}
+        "400": {$ref: "#/components/responses/BadRequest"}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "403": {$ref: "#/components/responses/Forbidden"}
+        "404": {$ref: "#/components/responses/NotFound"}
+        "415": {$ref: "#/components/responses/UnsupportedMediaType"}
+        "422": {$ref: "#/components/responses/ValidationFailed"}
+        "429": {$ref: "#/components/responses/TooManyRequests"}
+        "500": {$ref: "#/components/responses/InternalError"}
+    delete:
+      tags: [locations]
+      operationId: deleteLocation
+      summary: Delete a location
+      x-required: "scope write:assets, role editor"
+      description: |
+        Refused with 409 while assets use the location.
+      parameters:
+        - {name: id, in: path, required: true, schema: {type: integer, minimum: 1}}
+      responses:
+        "204": {description: Deleted}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "403": {$ref: "#/components/responses/Forbidden"}
+        "404": {$ref: "#/components/responses/NotFound"}
+        "409": {$ref: "#/components/responses/Conflict"}
+        "429": {$ref: "#/components/responses/TooManyRequests"}
+        "500": {$ref: "#/components/responses/InternalError"}
+  /api/v1/categories:
+    get:
+      tags: [categories]
+      operationId: listCategories
+      summary: List categories
+      x-required: "scope read:assets"
+      description: |
+        Categories with their field definitions. Categories are read-only in API v1; admins manage them in the web UI.
+      parameters:
+        - {$ref: "#/components/parameters/page"}
+        - {$ref: "#/components/parameters/per_page"}
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/CategoryList"}
+        "400": {$ref: "#/components/responses/BadRequest"}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "403": {$ref: "#/components/responses/Forbidden"}
+        "429": {$ref: "#/components/responses/TooManyRequests"}
+        "500": {$ref: "#/components/responses/InternalError"}
+      x-codeSamples:
+        - lang: curl
+          source: "curl -H \"Authorization: Bearer $TOKEN\" \"https://inventory.example/api/v1/categories\""
+  /api/v1/categories/{id}:
+    get:
+      tags: [categories]
+      operationId: getCategory
+      summary: Get a category
+      x-required: "scope read:assets"
+      parameters:
+        - {name: id, in: path, required: true, schema: {type: integer, minimum: 1}}
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/Category"}
+              example: {id: 2, name: "Cable drum", prefix: KT, dguv_required: true, dguv_interval_months: 12, asset_count: 5, fields: [{key: length, label: Length, type: number, unit: m, options: [], required: false, position: 1}], created_at: "2026-11-01T10:00:00Z", updated_at: "2026-11-01T10:00:00Z"}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "403": {$ref: "#/components/responses/Forbidden"}
+        "404": {$ref: "#/components/responses/NotFound"}
+        "429": {$ref: "#/components/responses/TooManyRequests"}
+        "500": {$ref: "#/components/responses/InternalError"}
+  /api/v1/assets:
+    get:
+      tags: [assets]
+      operationId: listAssets
+      summary: List and search assets
+      x-required: "scope read:assets"
+      description: |
+        The list items carry no `dguv` object; fetch one asset for its inspection state.
+      parameters:
+        - {name: q, in: query, description: "Search words; each must match number, name, serial number, manufacturer, model or a field value.", schema: {type: string}}
+        - {name: category, in: query, description: Category ID., schema: {type: integer, minimum: 1}}
+        - {name: location, in: query, description: Location ID., schema: {type: integer, minimum: 1}}
+        - {name: status, in: query, schema: {type: string, enum: [active, defective, retired, lost]}}
+        - {name: "f_<key>", in: query, description: "Filter by a custom field of the chosen category, for example f_color=red. Needs category. Booleans as true or false.", schema: {type: string}}
+        - {name: sort, in: query, schema: {type: string, enum: [inventory_no, name, category, location, status, updated], default: inventory_no}}
+        - {name: dir, in: query, schema: {type: string, enum: [asc, desc], default: asc}}
+        - {$ref: "#/components/parameters/page"}
+        - {$ref: "#/components/parameters/per_page"}
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/AssetList"}
+        "400": {$ref: "#/components/responses/BadRequest"}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "403": {$ref: "#/components/responses/Forbidden"}
+        "429": {$ref: "#/components/responses/TooManyRequests"}
+        "500": {$ref: "#/components/responses/InternalError"}
+      x-codeSamples:
+        - lang: curl
+          source: "curl -H \"Authorization: Bearer $TOKEN\" \"https://inventory.example/api/v1/assets?q=drum&status=active&per_page=20\""
+    post:
+      tags: [assets]
+      operationId: createAsset
+      summary: Create an asset
+      x-required: "scope write:assets, role editor"
+      description: |
+        `category_id` and `name` are required. Without `inventory_no` the number is generated from the configured format.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: "#/components/schemas/AssetCreate"}
+            example: {category_id: 2, name: "Drum 25 m", location_id: 1, fields: {length: 25}}
+      responses:
+        "201":
+          description: Created; the Location header has the URL
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/Asset"}
+              example: {id: 12, inventory_no: KT-00012, category_id: 2, category_name: "Cable drum", name: "Drum 25 m", serial_no: "", manufacturer: "", model: "", location_id: 1, location_name: "Storage 1", status: active, note: "", purchase_date: "2025-03-01", dguv_interval_months: null, fields: {length: 25}, dguv: {required: true, state: soon, last_inspected_on: "2025-12-01", next_due: "2026-12-01"}, created_at: "2026-11-01T10:00:00Z", updated_at: "2026-11-01T10:00:00Z"}
+        "400": {$ref: "#/components/responses/BadRequest"}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "403": {$ref: "#/components/responses/Forbidden"}
+        "415": {$ref: "#/components/responses/UnsupportedMediaType"}
+        "422": {$ref: "#/components/responses/ValidationFailed"}
+        "429": {$ref: "#/components/responses/TooManyRequests"}
+        "500": {$ref: "#/components/responses/InternalError"}
+      x-codeSamples:
+        - lang: curl
+          source: "curl -X POST -H \"Authorization: Bearer $TOKEN\" -H \"Content-Type: application/json\" -d '{\"category_id\":2,\"name\":\"Drum 25 m\",\"fields\":{\"length\":25}}' https://inventory.example/api/v1/assets"
+    patch:
+      tags: [assets]
+      operationId: bulkUpdateAssets
+      summary: Change several assets at once
+      x-required: "scope write:assets, role editor"
+      description: |
+        Applies the same `changes` to the assets in `ids` (at most 1000, duplicates are ignored) in one transaction: all or nothing. With `dry_run: true` everything is checked and computed, nothing is written and no audit entries are made. `name`, `serial_no` and `inventory_no` cannot be changed in bulk (422 `not_allowed`), unknown keys give 422 `unknown_field`. Another `category_id` moves every asset (values carry over by field key; the response shows the result). `fields` are keyed by field key and must exist in the target category (the new one, else the assets' own); `null` clears a value. With `note_append` the `note` is added as a new line instead of replacing the note. Validation problems are reported per asset as `"<asset id>.<property>"` (for example `"12.fields.length_m": required`); request-level problems as `ids` or `changes.<property>`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: "#/components/schemas/BulkAssetUpdate"}
+            example: {ids: [12, 13, 14], changes: {location_id: 3, status: active}, dry_run: false}
+      responses:
+        "200":
+          description: Applied (or, with `dry_run`, what would happen). `updated` counts the assets that actually change; `items` has every selected asset in the state after the change.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/BulkAssetResult"}
+              example: {updated: 1, dry_run: false, items: [{id: 12, inventory_no: KT-00012, category_id: 2, category_name: "Cable drum", name: "Drum 25 m", serial_no: "", manufacturer: "", model: "", location_id: 3, location_name: "Storage 2", status: active, note: "", purchase_date: null, dguv_interval_months: null, fields: {length: 25}, dguv: {required: true, state: soon, last_inspected_on: "2025-12-01", next_due: "2026-12-01"}, created_at: "2026-11-01T10:00:00Z", updated_at: "2026-11-02T08:30:00Z"}]}
+        "400": {$ref: "#/components/responses/BadRequest"}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "403": {$ref: "#/components/responses/Forbidden"}
+        "415": {$ref: "#/components/responses/UnsupportedMediaType"}
+        "422":
+          description: Invalid request or values; nothing was changed
+          content:
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
+              example: {type: "urn:lanventory:problem:validation_failed", title: Unprocessable Entity, status: 422, code: validation_failed, detail: "the request is well-formed but its values are invalid", errors: {"12.fields.length_m": required, "13.fields.length_m": required}}
+        "429": {$ref: "#/components/responses/TooManyRequests"}
+        "500": {$ref: "#/components/responses/InternalError"}
+      x-codeSamples:
+        - lang: curl
+          source: "curl -X PATCH -H \"Authorization: Bearer $TOKEN\" -H \"Content-Type: application/json\" -d '{\"ids\":[12,13],\"changes\":{\"status\":\"retired\"}}' https://inventory.example/api/v1/assets"
+  /api/v1/assets/by-number/{inventory_no}:
+    get:
+      tags: [assets]
+      operationId: getAssetByNumber
+      summary: Get an asset by inventory number
+      x-required: "scope read:assets"
+      description: |
+        The match is case-insensitive. Percent-encode special characters.
+      parameters:
+        - {name: inventory_no, in: path, required: true, schema: {type: string}}
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/Asset"}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "403": {$ref: "#/components/responses/Forbidden"}
+        "404": {$ref: "#/components/responses/NotFound"}
+        "429": {$ref: "#/components/responses/TooManyRequests"}
+        "500": {$ref: "#/components/responses/InternalError"}
+      x-codeSamples:
+        - lang: curl
+          source: "curl -H \"Authorization: Bearer $TOKEN\" \"https://inventory.example/api/v1/assets/by-number/KT-00012\""
+  /api/v1/assets/{id}:
+    get:
+      tags: [assets]
+      operationId: getAsset
+      summary: Get an asset
+      x-required: "scope read:assets"
+      description: |
+        Includes the custom fields and the DGUV V3 state.
+      parameters:
+        - {name: id, in: path, required: true, schema: {type: integer, minimum: 1}}
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/Asset"}
+              example: {id: 12, inventory_no: KT-00012, category_id: 2, category_name: "Cable drum", name: "Drum 25 m", serial_no: "", manufacturer: "", model: "", location_id: 1, location_name: "Storage 1", status: active, note: "", purchase_date: "2025-03-01", dguv_interval_months: null, fields: {length: 25}, dguv: {required: true, state: soon, last_inspected_on: "2025-12-01", next_due: "2026-12-01"}, created_at: "2026-11-01T10:00:00Z", updated_at: "2026-11-01T10:00:00Z"}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "403": {$ref: "#/components/responses/Forbidden"}
+        "404": {$ref: "#/components/responses/NotFound"}
+        "429": {$ref: "#/components/responses/TooManyRequests"}
+        "500": {$ref: "#/components/responses/InternalError"}
+    patch:
+      tags: [assets]
+      operationId: updateAsset
+      summary: Change an asset
+      x-required: "scope write:assets, role editor"
+      description: |
+        Partial update. The inventory number cannot change (422 `immutable`); another `category_id` moves the asset (see AssetUpdate). In `fields`, only the sent keys change; `null` clears one.
+      parameters:
+        - {name: id, in: path, required: true, schema: {type: integer, minimum: 1}}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: "#/components/schemas/AssetUpdate"}
+            example: {status: defective, fields: {length: 20}}
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/Asset"}
+        "400": {$ref: "#/components/responses/BadRequest"}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "403": {$ref: "#/components/responses/Forbidden"}
+        "404": {$ref: "#/components/responses/NotFound"}
+        "415": {$ref: "#/components/responses/UnsupportedMediaType"}
+        "422": {$ref: "#/components/responses/ValidationFailed"}
+        "429": {$ref: "#/components/responses/TooManyRequests"}
+        "500": {$ref: "#/components/responses/InternalError"}
+    delete:
+      tags: [assets]
+      operationId: deleteAsset
+      summary: Delete an asset
+      x-required: "scope write:assets, role admin"
+      description: |
+        Deletes the asset with its field values and inspections. Retiring an asset (status `retired`) keeps the history and is usually better.
+      parameters:
+        - {name: id, in: path, required: true, schema: {type: integer, minimum: 1}}
+      responses:
+        "204": {description: Deleted}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "403": {$ref: "#/components/responses/Forbidden"}
+        "404": {$ref: "#/components/responses/NotFound"}
+        "429": {$ref: "#/components/responses/TooManyRequests"}
+        "500": {$ref: "#/components/responses/InternalError"}
+  /api/v1/inspections:
+    get:
+      tags: [inspections]
+      operationId: listInspections
+      summary: List inspections
+      x-required: "scope read:inspections"
+      description: |
+        Newest first.
+      parameters:
+        - {name: from, in: query, description: First inspection date (inclusive)., schema: {type: string, format: date}}
+        - {name: to, in: query, description: Last inspection date (inclusive)., schema: {type: string, format: date}}
+        - {name: result, in: query, schema: {type: string, enum: [pass, fail]}}
+        - {name: category, in: query, description: Category ID., schema: {type: integer, minimum: 1}}
+        - {name: location, in: query, description: Location ID., schema: {type: integer, minimum: 1}}
+        - {name: inspector, in: query, description: Part of the inspector name., schema: {type: string}}
+        - {name: asset, in: query, description: Asset ID., schema: {type: integer, minimum: 1}}
+        - {$ref: "#/components/parameters/page"}
+        - {$ref: "#/components/parameters/per_page"}
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/InspectionList"}
+        "400": {$ref: "#/components/responses/BadRequest"}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "403": {$ref: "#/components/responses/Forbidden"}
+        "429": {$ref: "#/components/responses/TooManyRequests"}
+        "500": {$ref: "#/components/responses/InternalError"}
+      x-codeSamples:
+        - lang: curl
+          source: "curl -H \"Authorization: Bearer $TOKEN\" \"https://inventory.example/api/v1/inspections?result=fail&from=2026-01-01\""
+  /api/v1/inspections/due:
+    get:
+      tags: [inspections]
+      operationId: listDue
+      summary: Assets that need an inspection
+      x-required: "scope read:inspections"
+      description: |
+        Overdue, due within 30 days and never inspected; categories without DGUV V3 and retired or lost assets are excluded. Never inspected first, then by due date. "Today" is the UTC date.
+      parameters:
+        - {name: state, in: query, schema: {type: string, enum: [overdue, soon, never]}}
+        - {name: category, in: query, description: Category ID., schema: {type: integer, minimum: 1}}
+        - {name: location, in: query, description: Location ID., schema: {type: integer, minimum: 1}}
+        - {$ref: "#/components/parameters/page"}
+        - {$ref: "#/components/parameters/per_page"}
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/DueList"}
+        "400": {$ref: "#/components/responses/BadRequest"}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "403": {$ref: "#/components/responses/Forbidden"}
+        "429": {$ref: "#/components/responses/TooManyRequests"}
+        "500": {$ref: "#/components/responses/InternalError"}
+      x-codeSamples:
+        - lang: curl
+          source: "curl -H \"Authorization: Bearer $TOKEN\" \"https://inventory.example/api/v1/inspections/due?state=overdue\""
+  /api/v1/inspections/{id}:
+    get:
+      tags: [inspections]
+      operationId: getInspection
+      summary: Get an inspection
+      x-required: "scope read:inspections"
+      parameters:
+        - {name: id, in: path, required: true, schema: {type: integer, minimum: 1}}
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/Inspection"}
+              example: {id: 5, asset_id: 12, inventory_no: KT-00012, asset_name: "Drum 25 m", category_name: "Cable drum", location_name: "Storage 1", inspected_on: "2025-12-01", inspector_name: alice, recorded_by: 3, result: pass, protection_class: I, visual_ok: true, function_ok: true, pe_resistance_ohm: 0.12, insulation_mohm: 20, leakage_ma: 0.4, test_device: "", remark: "", interval_months: 12, next_due: "2026-12-01", guidance: [], created_at: "2025-12-01T09:00:00Z"}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "403": {$ref: "#/components/responses/Forbidden"}
+        "404": {$ref: "#/components/responses/NotFound"}
+        "429": {$ref: "#/components/responses/TooManyRequests"}
+        "500": {$ref: "#/components/responses/InternalError"}
+    delete:
+      tags: [inspections]
+      operationId: deleteInspection
+      summary: Delete an inspection
+      x-required: "scope write:inspections, role admin"
+      description: |
+        Inspections are records and cannot be edited, only deleted by an admin. The asset's state falls back to its previous inspection.
+      parameters:
+        - {name: id, in: path, required: true, schema: {type: integer, minimum: 1}}
+      responses:
+        "204": {description: Deleted}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "403": {$ref: "#/components/responses/Forbidden"}
+        "404": {$ref: "#/components/responses/NotFound"}
+        "429": {$ref: "#/components/responses/TooManyRequests"}
+        "500": {$ref: "#/components/responses/InternalError"}
+  /api/v1/assets/{id}/inspections:
+    get:
+      tags: [inspections]
+      operationId: listAssetInspections
+      summary: List the inspections of an asset
+      x-required: "scope read:inspections"
+      description: |
+        Newest first.
+      parameters:
+        - {name: id, in: path, required: true, schema: {type: integer, minimum: 1}}
+        - {name: from, in: query, description: First inspection date (inclusive)., schema: {type: string, format: date}}
+        - {name: to, in: query, description: Last inspection date (inclusive)., schema: {type: string, format: date}}
+        - {name: result, in: query, schema: {type: string, enum: [pass, fail]}}
+        - {$ref: "#/components/parameters/page"}
+        - {$ref: "#/components/parameters/per_page"}
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/InspectionList"}
+        "400": {$ref: "#/components/responses/BadRequest"}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "403": {$ref: "#/components/responses/Forbidden"}
+        "404": {$ref: "#/components/responses/NotFound"}
+        "429": {$ref: "#/components/responses/TooManyRequests"}
+        "500": {$ref: "#/components/responses/InternalError"}
+    post:
+      tags: [inspections]
+      operationId: createInspection
+      summary: Record an inspection
+      x-required: "scope write:inspections, owner with can_inspect"
+      description: |
+        Same rules as the web form: only assets of categories that require DGUV V3 and that are not retired or lost can be inspected (422 `not_inspectable`, `asset_inactive`); the inspection date may not be more than one day in the future; measurements are optional non-negative numbers. `inspected_on` defaults to today (UTC) and `inspector_name` to the token owner. LANventory never derives pass or fail from the measurements; `guidance` lists simplified hints. A failed result sets an active asset to defective when `set_defective` is true; a passed result sets a defective asset back to active when `set_active` is true.
+      parameters:
+        - {name: id, in: path, required: true, schema: {type: integer, minimum: 1}}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: "#/components/schemas/InspectionCreate"}
+            example: {result: pass, protection_class: I, visual_ok: true, function_ok: true, pe_resistance_ohm: 0.12, insulation_mohm: 20, leakage_ma: 0.4, touch_ma: 0.2, reason: repeat}
+      responses:
+        "201":
+          description: Recorded; the Location header has the URL
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/InspectionCreated"}
+        "400": {$ref: "#/components/responses/BadRequest"}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "403": {$ref: "#/components/responses/Forbidden"}
+        "404": {$ref: "#/components/responses/NotFound"}
+        "415": {$ref: "#/components/responses/UnsupportedMediaType"}
+        "422": {$ref: "#/components/responses/ValidationFailed"}
+        "429": {$ref: "#/components/responses/TooManyRequests"}
+        "500": {$ref: "#/components/responses/InternalError"}
+      x-codeSamples:
+        - lang: curl
+          source: "curl -X POST -H \"Authorization: Bearer $TOKEN\" -H \"Content-Type: application/json\" -d '{\"result\":\"pass\",\"visual_ok\":true,\"function_ok\":true}' https://inventory.example/api/v1/assets/12/inspections"
+
+components:
+  securitySchemes:
+    bearer:
+      type: http
+      scheme: bearer
+      description: "API token `lvk_...` with the scopes read:assets, write:assets, read:inspections, write:inspections. A browser session works too (header X-CSRF-Token on unsafe methods)."
+  parameters:
+    page:
+      name: page
+      in: query
+      description: Page number, from 1.
+      schema: {type: integer, minimum: 1, default: 1}
+    per_page:
+      name: per_page
+      in: query
+      description: Items per page.
+      schema: {type: integer, minimum: 1, maximum: 200, default: 50}
+  responses:
+    BadRequest:
+      description: Invalid query parameter (`invalid_parameter`) or a body that is not one JSON object (`invalid_json`)
+      content:
+        application/problem+json:
+          schema: {$ref: "#/components/schemas/Problem"}
+    Unauthorized:
+      description: Missing, unknown, revoked or expired token, disabled owner, or no (complete) session
+      content:
+        application/problem+json:
+          schema: {$ref: "#/components/schemas/Problem"}
+    Forbidden:
+      description: Missing scope (`insufficient_scope`), the owner's role or rights do not allow it (`forbidden`), CSRF failure (`csrf_failed`) or a required second factor is missing (`mfa_required`)
+      content:
+        application/problem+json:
+          schema: {$ref: "#/components/schemas/Problem"}
+    NotFound:
+      description: No such resource or endpoint
+      content:
+        application/problem+json:
+          schema: {$ref: "#/components/schemas/Problem"}
+    Conflict:
+      description: The resource is in use
+      content:
+        application/problem+json:
+          schema: {$ref: "#/components/schemas/Problem"}
+    UnsupportedMediaType:
+      description: The body must be sent as application/json
+      content:
+        application/problem+json:
+          schema: {$ref: "#/components/schemas/Problem"}
+    ValidationFailed:
+      description: Invalid values (`validation_failed` with `errors`), or the asset cannot be inspected (`not_inspectable`, `asset_inactive`)
+      content:
+        application/problem+json:
+          schema: {$ref: "#/components/schemas/Problem"}
+          example: {type: "urn:lanventory:problem:validation_failed", title: Unprocessable Entity, status: 422, code: validation_failed, detail: "the request is well-formed but its values are invalid", errors: {name: required, "fields.length": invalid_number}}
+    TooManyRequests:
+      description: Rate limit per token exceeded; see Retry-After
+      headers:
+        Retry-After: {description: Seconds to wait., schema: {type: integer}}
+      content:
+        application/problem+json:
+          schema: {$ref: "#/components/schemas/Problem"}
+    InternalError:
+      description: Unexpected server error (details in the server log)
+      content:
+        application/problem+json:
+          schema: {$ref: "#/components/schemas/Problem"}
+  schemas:
+    Problem:
+      type: object
+      required: [type, title, status, code]
+      properties:
+        type: {type: string}
+        title: {type: string}
+        status: {type: integer}
+        detail: {type: string}
+        code:
+          type: string
+          description: Stable error code.
+          enum: [not_found, invalid_token, unauthorized, insufficient_scope, forbidden, csrf_failed, mfa_required, rate_limited,
+                 invalid_parameter, invalid_json, unsupported_media_type, payload_too_large, method_not_allowed, validation_failed,
+                 conflict, not_inspectable, asset_inactive, internal]
+        errors:
+          type: object
+          description: Field name to error code (validation_failed only). Custom fields are named `fields.<key>`.
+          additionalProperties: {type: string}
+    Me:
+      type: object
+      required: [user, auth, token, effective_scopes]
+      properties:
+        user:
+          type: object
+          required: [id, username, role, can_inspect]
+          properties:
+            id: {type: integer}
+            username: {type: string}
+            role: {type: string, enum: [viewer, editor, admin]}
+            can_inspect: {type: boolean}
+        auth: {type: string, enum: [token, session]}
+        token:
+          description: The token of this request; null for a session.
+          oneOf:
+            - type: "null"
+            - type: object
+              required: [id, name, prefix, scopes, expires_at]
+              properties:
+                id: {type: integer}
+                name: {type: string}
+                prefix: {type: string}
+                scopes: {type: array, items: {$ref: "#/components/schemas/Scope"}}
+                expires_at: {type: [string, "null"], format: date-time}
+        effective_scopes:
+          description: The scopes usable right now (token scopes limited by the user's role and flags; for a session all scopes the user's rights allow).
+          type: array
+          items: {$ref: "#/components/schemas/Scope"}
+    Scope:
+      type: string
+      enum: [read:assets, write:assets, read:inspections, write:inspections]
+    Location:
+      type: object
+      required: [id, name, description, asset_count, created_at, updated_at]
+      properties:
+        id: {type: integer}
+        name: {type: string}
+        description: {type: string}
+        asset_count: {type: integer}
+        created_at: {type: string, format: date-time}
+        updated_at: {type: string, format: date-time}
+    LocationInput:
+      type: object
+      additionalProperties: false
+      properties:
+        name: {type: string, description: "Required when creating; unique, case-insensitive; at most 100 characters."}
+        description: {type: string, description: At most 500 characters.}
+    LocationList:
+      type: object
+      required: [items, page, per_page, total]
+      properties:
+        items: {type: array, items: {$ref: "#/components/schemas/Location"}}
+        page: {type: integer}
+        per_page: {type: integer}
+        total: {type: integer}
+    FieldDef:
+      type: object
+      required: [key, label, type, unit, options, required, position]
+      properties:
+        key: {type: string}
+        label: {type: string}
+        type: {type: string, enum: [text, number, select, bool, date]}
+        unit: {type: string, description: "Unit of a number field, for example m; empty if none."}
+        options: {type: array, items: {type: string}, description: Allowed values of a select field.}
+        required: {type: boolean}
+        position: {type: integer}
+    Category:
+      type: object
+      required: [id, name, prefix, dguv_required, dguv_interval_months, asset_count, fields, created_at, updated_at]
+      properties:
+        id: {type: integer}
+        name: {type: string}
+        prefix: {type: string, description: Prefix of generated inventory numbers; empty when the category has none.}
+        dguv_required: {type: boolean}
+        dguv_interval_months: {type: integer}
+        asset_count: {type: integer}
+        fields: {type: array, items: {$ref: "#/components/schemas/FieldDef"}}
+        created_at: {type: string, format: date-time}
+        updated_at: {type: string, format: date-time}
+    CategoryList:
+      type: object
+      required: [items, page, per_page, total]
+      properties:
+        items: {type: array, items: {$ref: "#/components/schemas/Category"}}
+        page: {type: integer}
+        per_page: {type: integer}
+        total: {type: integer}
+    FieldValues:
+      type: object
+      description: "Custom field values by field key: number as number, bool as boolean, text, date (YYYY-MM-DD) and select as string. Unset fields are absent (in requests: null clears)."
+      additionalProperties:
+        oneOf:
+          - {type: string}
+          - {type: number}
+          - {type: boolean}
+          - {type: "null"}
+    Dguv:
+      type: object
+      required: [required, state, last_inspected_on, next_due]
+      properties:
+        required: {type: boolean, description: Whether the category requires DGUV V3 inspections.}
+        state:
+          type: string
+          enum: [not_required, never, ok, soon, overdue]
+          description: "never = required but not inspected yet, soon = due within 30 days, overdue = due date passed."
+        last_inspected_on: {type: [string, "null"], format: date}
+        next_due: {type: [string, "null"], format: date}
+    Asset:
+      type: object
+      required: [id, inventory_no, category_id, category_name, name, serial_no, manufacturer, model, location_id, location_name, status, note,
+                 purchase_date, dguv_interval_months, fields, created_at, updated_at]
+      properties:
+        id: {type: integer}
+        inventory_no: {type: string}
+        category_id: {type: integer}
+        category_name: {type: string}
+        name: {type: string}
+        serial_no: {type: string}
+        manufacturer: {type: string}
+        model: {type: string}
+        location_id: {type: [integer, "null"]}
+        location_name: {type: [string, "null"]}
+        status: {type: string, enum: [active, defective, retired, lost]}
+        note: {type: string}
+        purchase_date: {type: [string, "null"], format: date}
+        dguv_interval_months: {type: [integer, "null"], description: Overrides the category's interval; null = category default.}
+        fields: {$ref: "#/components/schemas/FieldValues"}
+        dguv: {$ref: "#/components/schemas/Dguv"}
+        created_at: {type: string, format: date-time}
+        updated_at: {type: string, format: date-time}
+    AssetList:
+      type: object
+      required: [items, page, per_page, total]
+      properties:
+        items: {type: array, items: {$ref: "#/components/schemas/Asset"}}
+        page: {type: integer}
+        per_page: {type: integer}
+        total: {type: integer}
+    AssetCreate:
+      type: object
+      additionalProperties: false
+      required: [category_id, name]
+      properties:
+        category_id: {type: integer, minimum: 1}
+        inventory_no: {type: string, description: "Optional manual number; generated from inventory.number_format (and the category prefix, if any) when empty. Must be unique."}
+        name: {type: string, description: At most 200 characters.}
+        serial_no: {type: string}
+        manufacturer: {type: string}
+        model: {type: string}
+        location_id: {type: [integer, "null"]}
+        status: {type: string, enum: [active, defective, retired, lost], default: active}
+        note: {type: string}
+        purchase_date: {type: [string, "null"], format: date}
+        dguv_interval_months: {type: [integer, "null"], minimum: 1, maximum: 120}
+        fields: {$ref: "#/components/schemas/FieldValues"}
+    AssetUpdate:
+      type: object
+      additionalProperties: false
+      description: Only the sent properties change. `inventory_no` may be sent but must equal the current value. Another `category_id` moves the asset to that category; custom values carry over to fields with the same key when valid, others are dropped, `fields` refer to the new category and its required fields must be filled. The inventory number and the inspections stay.
+      properties:
+        category_id: {type: integer}
+        inventory_no: {type: string}
+        name: {type: string}
+        serial_no: {type: string}
+        manufacturer: {type: string}
+        model: {type: string}
+        location_id: {type: [integer, "null"]}
+        status: {type: string, enum: [active, defective, retired, lost]}
+        note: {type: string}
+        purchase_date: {type: [string, "null"], format: date}
+        dguv_interval_months: {type: [integer, "null"], minimum: 1, maximum: 120}
+        fields: {$ref: "#/components/schemas/FieldValues"}
+    BulkAssetUpdate:
+      type: object
+      additionalProperties: false
+      required: [ids, changes]
+      properties:
+        ids: {type: array, minItems: 1, maxItems: 1000, items: {type: integer, minimum: 1}}
+        changes: {$ref: "#/components/schemas/BulkChanges"}
+        dry_run: {type: boolean, default: false, description: Check and compute only; write nothing.}
+    BulkChanges:
+      type: object
+      additionalProperties: false
+      minProperties: 1
+      description: Only the sent properties change. Not allowed (422 `not_allowed`) are `name`, `serial_no` and `inventory_no`.
+      properties:
+        category_id: {type: integer, minimum: 1}
+        location_id: {type: [integer, "null"], description: null clears the location.}
+        status: {type: string, enum: [active, defective, retired, lost]}
+        manufacturer: {type: string}
+        model: {type: string}
+        purchase_date: {type: [string, "null"], format: date, description: null or empty clears the date.}
+        dguv_interval_months: {type: [integer, "null"], minimum: 1, maximum: 120, description: null = category default.}
+        note: {type: string}
+        note_append: {type: boolean, default: false, description: Add `note` as a new line instead of replacing the note.}
+        fields: {$ref: "#/components/schemas/FieldValues"}
+    BulkAssetResult:
+      type: object
+      required: [updated, dry_run, items]
+      properties:
+        updated: {type: integer, description: Number of assets that actually change.}
+        dry_run: {type: boolean}
+        items: {type: array, items: {$ref: "#/components/schemas/Asset"}}
+    Guidance:
+      type: object
+      required: [key, field, limit]
+      properties:
+        key: {type: string, enum: [pe_high, insulation_low, leakage_high, touch_high]}
+        field: {type: string, description: The measurement it concerns.}
+        limit: {type: number, description: The simplified limit that was exceeded or undercut.}
+    Cmp:
+      type: string
+      enum: ["", "<", ">"]
+      description: Comparison qualifier of the reading next to it. ">" means the reading lies above the instrument's range (">299" MOhm), "<" below it; empty means an exact reading. Guidance compares the number as it is.
+    Inspection:
+      type: object
+      required: [id, asset_id, inventory_no, asset_name, category_name, location_name, inspected_on, inspector_name, recorded_by, result,
+                 protection_class, visual_ok, function_ok, reason, pe_resistance_ohm, pe_resistance_cmp, insulation_mohm, insulation_cmp,
+                 leakage_ma, leakage_cmp, leakage_method, touch_ma, touch_cmp, test_device, test_device_id,
+                 test_device_calibrated_until, remark, interval_months, next_due, guidance, created_at]
+      properties:
+        id: {type: integer}
+        asset_id: {type: integer}
+        inventory_no: {type: string}
+        asset_name: {type: string}
+        category_name: {type: string}
+        location_name: {type: [string, "null"]}
+        inspected_on: {type: string, format: date}
+        inspector_name: {type: string}
+        recorded_by: {type: [integer, "null"], description: User ID; null if the user was deleted.}
+        result: {type: string, enum: [pass, fail]}
+        protection_class: {type: [string, "null"], enum: [I, II, III, null]}
+        visual_ok: {type: boolean}
+        function_ok: {type: boolean}
+        reason: {type: string, enum: ["", initial, repeat, repair], description: "Inspection reason; empty = not recorded."}
+        pe_resistance_ohm: {type: [number, "null"], description: Protective conductor resistance in ohm.}
+        pe_resistance_cmp: {$ref: "#/components/schemas/Cmp"}
+        insulation_mohm: {type: [number, "null"], description: Insulation resistance in megohm.}
+        insulation_cmp: {$ref: "#/components/schemas/Cmp"}
+        leakage_ma: {type: [number, "null"], description: Protective conductor or leakage current in milliampere.}
+        leakage_cmp: {$ref: "#/components/schemas/Cmp"}
+        leakage_method: {type: string, enum: ["", direct, differential, alternative], description: "Measuring method of the leakage current; empty = not recorded."}
+        touch_ma: {type: [number, "null"], description: Touch current in milliampere.}
+        touch_cmp: {$ref: "#/components/schemas/Cmp"}
+        test_device: {type: string}
+        test_device_id: {type: string}
+        test_device_calibrated_until: {type: [string, "null"], format: date}
+        remark: {type: string}
+        interval_months: {type: integer, description: The interval that was applied.}
+        next_due: {type: string, format: date}
+        guidance: {type: array, items: {$ref: "#/components/schemas/Guidance"}, description: Non-binding hints for values outside simplified limits.}
+        created_at: {type: string, format: date-time}
+    InspectionCreated:
+      allOf:
+        - $ref: "#/components/schemas/Inspection"
+        - type: object
+          required: [asset_status]
+          properties:
+            asset_status:
+              type: object
+              required: [previous, current]
+              properties:
+                previous: {type: string, enum: [active, defective, retired, lost]}
+                current: {type: string, enum: [active, defective, retired, lost]}
+    InspectionList:
+      type: object
+      required: [items, page, per_page, total]
+      properties:
+        items: {type: array, items: {$ref: "#/components/schemas/Inspection"}}
+        page: {type: integer}
+        per_page: {type: integer}
+        total: {type: integer}
+    InspectionCreate:
+      type: object
+      additionalProperties: false
+      required: [result]
+      properties:
+        inspected_on: {type: string, format: date, description: Defaults to today (UTC); at most one day in the future.}
+        inspector_name: {type: string, description: Defaults to the token owner; may be an external electrician.}
+        result: {type: string, enum: [pass, fail]}
+        protection_class: {type: [string, "null"], enum: [I, II, III, null]}
+        visual_ok: {type: boolean, default: false}
+        function_ok: {type: boolean, default: false}
+        reason: {type: [string, "null"], enum: ["", initial, repeat, repair, null]}
+        pe_resistance_ohm: {$ref: "#/components/schemas/MeasurementInput"}
+        pe_resistance_cmp: {$ref: "#/components/schemas/CmpInput"}
+        insulation_mohm: {$ref: "#/components/schemas/MeasurementInput"}
+        insulation_cmp: {$ref: "#/components/schemas/CmpInput"}
+        leakage_ma: {$ref: "#/components/schemas/MeasurementInput"}
+        leakage_cmp: {$ref: "#/components/schemas/CmpInput"}
+        leakage_method: {type: [string, "null"], enum: ["", direct, differential, alternative, null]}
+        touch_ma: {$ref: "#/components/schemas/MeasurementInput"}
+        touch_cmp: {$ref: "#/components/schemas/CmpInput"}
+        test_device: {type: string}
+        test_device_id: {type: string, maxLength: 100}
+        test_device_calibrated_until: {type: [string, "null"], format: date}
+        remark: {type: string}
+        set_defective: {type: boolean, default: false, description: With a failed result, set an active asset to defective.}
+        set_active: {type: boolean, default: false, description: A passed result sets a defective asset back to active.}
+    MeasurementInput:
+      description: |
+        A non-negative reading. Maximum 1000 (ohm, mA) or 10000 (MOhm for insulation). Besides a number, a string is accepted for convenience, with comma or dot decimals and an optional leading `>` or `<` for readings beyond the instrument's range: `">299"`, `"< 0,01"`. The qualifier then sets the matching `*_cmp` property; a contradicting explicit `*_cmp` is rejected.
+      oneOf:
+        - {type: number, minimum: 0, maximum: 10000}
+        - {type: string, maxLength: 26}
+        - {type: "null"}
+    CmpInput:
+      type: [string, "null"]
+      enum: ["", "<", ">", null]
+      description: Comparison qualifier of the reading with the same prefix; only together with a value.
+    Due:
+      type: object
+      required: [asset_id, inventory_no, name, category_name, location_name, status, last_inspected_on, last_result, next_due, state]
+      properties:
+        asset_id: {type: integer}
+        inventory_no: {type: string}
+        name: {type: string}
+        category_name: {type: string}
+        location_name: {type: [string, "null"]}
+        status: {type: string, enum: [active, defective]}
+        last_inspected_on: {type: [string, "null"], format: date}
+        last_result: {type: [string, "null"], enum: [pass, fail, null]}
+        next_due: {type: [string, "null"], format: date}
+        state: {type: string, enum: [overdue, soon, never]}
+    DueList:
+      type: object
+      required: [items, page, per_page, total]
+      properties:
+        items: {type: array, items: {$ref: "#/components/schemas/Due"}}
+        page: {type: integer}
+        per_page: {type: integer}
+        total: {type: integer}
