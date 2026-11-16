@@ -27,7 +27,9 @@ _Last updated: 2026-11-16_
 
 **Done:** 0.1–0.5, 1.1–1.5, 2.1–2.8, 3.1–3.6, 4.1–4.5, 5.1–5.4, 6.1–6.9.
 
-**Next:** release v0.1.0 (tag in the GitHub web UI), then items from [Later](#later).
+**Released:** v0.1.0 (2026-11-16).
+
+**Next:** items from [Later](#later).
 
 ## Phase 0 – Scaffold
 
