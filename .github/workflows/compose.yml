@@ -1,0 +1,65 @@
+name: Compose examples
+
+on:
+  pull_request:
+    paths:
+      - compose.yaml
+      - compose.bind.yaml
+      - .github/workflows/compose.yml
+  push:
+    branches: [main]
+    paths:
+      - compose.yaml
+      - compose.bind.yaml
+      - .github/workflows/compose.yml
+
+permissions:
+  contents: read
+
+jobs:
+  compose:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        file: [compose.yaml, compose.bind.yaml]
+    env:
+      COMPOSE_FILE: ${{ matrix.file }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Prepare the data directory (bind variant)
+        if: matrix.file == 'compose.bind.yaml'
+        run: mkdir -p data && sudo chown 100:101 data
+      - name: Start
+        run: docker compose -f "$COMPOSE_FILE" up -d
+      - name: Wait until healthy
+        run: |
+          id=$(docker compose -f "$COMPOSE_FILE" ps -q lanventory)
+          for i in $(seq 1 60); do
+            status=$(docker inspect --format '{{.State.Health.Status}}' "$id")
+            echo "health: $status"
+            [ "$status" = healthy ] && exit 0
+            sleep 2
+          done
+          echo "container did not become healthy within 120 s" >&2
+          exit 1
+      - name: Check /health
+        run: curl -fsS http://127.0.0.1:9060/health
+      - name: Create a user (proves the data directory is writable)
+        run: |
+          echo 'a-long-ci-password' | docker compose -f "$COMPOSE_FILE" exec -T lanventory \
+            lanventory user create ci-admin --role admin
+      - name: Check the data directory on the host (bind variant)
+        if: matrix.file == 'compose.bind.yaml'
+        run: |
+          ls -l data
+          test -f data/lanventory.db
+          test -f data/secret.key
+      - name: Print logs on failure
+        if: failure()
+        run: docker compose -f "$COMPOSE_FILE" logs
+      - name: Stop and clean up
+        if: always()
+        run: docker compose -f "$COMPOSE_FILE" down -v

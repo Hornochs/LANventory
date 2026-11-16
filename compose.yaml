@@ -1,0 +1,33 @@
+# LANventory with Docker Compose, data in a named Docker volume (Docker manages it).
+#
+# Start:             docker compose up -d
+# First admin user:  docker compose exec lanventory lanventory user create admin --role admin
+# Logs:              docker compose logs -f lanventory
+# Update:            docker compose pull && docker compose up -d
+# Backup:            docker compose exec lanventory lanventory backup
+#                    (writes a consistent copy to /var/lib/lanventory/backups in the volume;
+#                    also keep a copy of secret.key, see docs/installation.md)
+#
+# To keep the data in a local directory instead, use compose.bind.yaml.
+
+services:
+  lanventory:
+    # Pin a version tag like 0.1.0 for production.
+    image: ghcr.io/lan-dot-party/lanventory:latest
+    restart: unless-stopped
+    ports:
+      # Loopback only, for a reverse proxy on the same host.
+      # Use "9060:9060" to expose the port directly.
+      - "127.0.0.1:9060:9060"
+    environment:
+      # The exact public origin users open in the browser. It is needed for secure cookies
+      # and passkeys (WebAuthn), which require the exact HTTPS origin.
+      LANVENTORY_PUBLIC_URL: https://inventory.example.org
+      TZ: Europe/Berlin
+    volumes:
+      - lanventory-data:/var/lib/lanventory
+      # Optional: use your own configuration (read-only).
+      # - ./config.yaml:/etc/lanventory/config.yaml:ro
+
+volumes:
+  lanventory-data: {}
