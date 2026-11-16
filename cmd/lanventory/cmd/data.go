@@ -46,7 +46,7 @@ var dataExportCmd = &cobra.Command{
 			return err
 		}
 		b = append(b, '\n')
-		var w io.Writer = cmd.OutOrStdout()
+		w := cmd.OutOrStdout()
 		if out != "" {
 			// The file holds the whole inventory: owner only.
 			f, err := os.OpenFile(out, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o600)

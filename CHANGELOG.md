@@ -6,8 +6,9 @@ uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
-Everything so far is unreleased. When v0.1.0 is published, the heading below becomes
-`## [0.1.0] - YYYY-MM-DD` (set on release).
+## [0.1.0] - 2026-11-16
+
+First release. Built with Go 1.26.
 
 ### Added
 
@@ -134,3 +135,6 @@ Everything so far is unreleased. When v0.1.0 is published, the heading below bec
 
 - Numbers are shown with a decimal comma in the German UI (asset detail, history); dates are
   shown as `DD.MM.YYYY` in German on the inspection pages and the asset detail.
+
+[Unreleased]: https://github.com/lan-dot-party/LANventory/compare/v0.1.0...HEAD
+[0.1.0]: https://github.com/lan-dot-party/LANventory/releases/tag/v0.1.0

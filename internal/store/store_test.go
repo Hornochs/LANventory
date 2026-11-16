@@ -25,7 +25,7 @@ func openTest(t *testing.T) *DB {
 }
 
 func TestRoleLevels(t *testing.T) {
-	if !(RoleLevel(RoleViewer) < RoleLevel(RoleEditor) && RoleLevel(RoleEditor) < RoleLevel(RoleAdmin) && RoleLevel("x") == 0) {
+	if RoleLevel(RoleViewer) >= RoleLevel(RoleEditor) || RoleLevel(RoleEditor) >= RoleLevel(RoleAdmin) || RoleLevel("x") != 0 {
 		t.Fatal("role order broken")
 	}
 	var nilUser *User

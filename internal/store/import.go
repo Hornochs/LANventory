@@ -626,8 +626,8 @@ func (r *importRun) row(i int) (ImportRowResult, error) {
 	}
 	locName := ""
 	if v, ok := r.cell(row, "location"); ok {
-		switch {
-		case v == "":
+		switch v {
+		case "":
 			a.LocationID = r.opts.DefaultLocationID // an empty cell clears the location unless a default is set
 		default:
 			if n, code := cleanLine(v, 100); code != "" {

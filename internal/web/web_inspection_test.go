@@ -497,7 +497,7 @@ func TestDuePageAndDashboard(t *testing.T) {
 		t.Errorf("all: %d", got)
 	}
 	idx := func(s string) int { return strings.Index(page, "<td>"+s+"</td>") }
-	if !(idx("never1") < idx("overdue1") && idx("never2") < idx("overdue1") && idx("overdue1") < idx("overdue2") && idx("overdue2") < idx("soon")) {
+	if idx("never1") >= idx("overdue1") || idx("never2") >= idx("overdue1") || idx("overdue1") >= idx("overdue2") || idx("overdue2") >= idx("soon") {
 		t.Errorf("wrong sort order: %d %d %d %d %d", idx("never1"), idx("never2"), idx("overdue1"), idx("overdue2"), idx("soon"))
 	}
 	for _, absent := range []string{"<td>ok</td>", "<td>retired</td>", "<td>netcable</td>"} {
