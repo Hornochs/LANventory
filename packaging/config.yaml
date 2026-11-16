@@ -1,0 +1,34 @@
+# LANventory configuration (package installation)
+# Users, categories and assets live in the database and are managed in the web
+# UI or with "lanventory user …". After changes:
+#   sudo systemctl restart lanventory
+
+# HTTP listen address. Behind a reverse proxy (recommended), bind to localhost
+# only; otherwise e.g. 0.0.0.0:9060 together with tls below.
+listen: 127.0.0.1:9060
+
+# Public URL as the browser sees it (scheme, host, port – no path).
+# With https://, session cookies are marked Secure. Must be correct, otherwise
+# every form is rejected as a cross-origin request.
+public_url: http://127.0.0.1:9060
+
+# Proxies whose X-Real-IP/X-Forwarded-For headers are trusted.
+trusted_proxies: [127.0.0.1, "::1"]
+
+# AES-256 key for secrets in the database (created by the package).
+secret_key_file: /etc/lanventory/secret.key
+
+storage:
+  path: /var/lib/lanventory/lanventory.db
+
+log:
+  level: info                 # debug, info, warn, error
+  format: text                # text or json
+
+inventory:
+  number_format: "{prefix}-{seq:05}"
+
+# Built-in TLS instead of a reverse proxy:
+# tls:
+#   cert_file: /etc/lanventory/tls.crt
+#   key_file: /etc/lanventory/tls.key
