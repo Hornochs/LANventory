@@ -1,0 +1,42 @@
+# LANventory configuration
+# Users, categories and assets live in the database and are managed
+# in the web UI or with the command line.
+
+# HTTP listen address. Behind a reverse proxy, bind to localhost only.
+listen: 127.0.0.1:9060
+
+# Public URL (scheme, host, port – no path). With https://, session
+# cookies are marked Secure. Must match what browsers see.
+public_url: http://127.0.0.1:9060
+
+# Proxies whose X-Real-IP/X-Forwarded-For headers are trusted.
+trusted_proxies: [127.0.0.1, "::1"]
+
+# AES-256 key for secrets in the database (created if missing).
+# Relative paths are relative to this file.
+secret_key_file: secret.key
+
+storage:
+  path: data/lanventory.db    # SQLite database file
+
+log:
+  level: info                 # debug, info, warn, error
+  format: text                # text or json
+
+# Number format of generated inventory numbers.
+inventory:
+  number_format: "{prefix}-{seq:05}"   # {prefix} = category prefix (optional), {seq:05} = running number; "{seq:04}" gives 0001, 0002, …
+
+# Printed in the header of inspection protocols (optional).
+organization:
+  name: ""
+
+# REST API (/api/v1): rate limit per API token.
+api:
+  rate_limit: 10              # requests per second
+  rate_burst: 30              # requests allowed at once
+
+# Built-in TLS (otherwise use a reverse proxy):
+# tls:
+#   cert_file: /etc/lanventory/tls.crt
+#   key_file: /etc/lanventory/tls.key
