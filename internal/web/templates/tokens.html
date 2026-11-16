@@ -1,0 +1,51 @@
+{{define "content"}}
+<h1>{{.T "tokens.title"}}</h1>
+<p class="muted">{{.T "tokens.intro"}} <a href="/api/">{{.T "tokens.docs"}}</a></p>
+{{if .Data.NewToken}}
+<section class="card notice">
+  <h3>{{.T "tokens.new_title"}}</h3>
+  <p>{{.T "tokens.once"}}</p>
+  <p><code class="secret">{{.Data.NewToken}}</code></p>
+  <p class="muted small">{{.T "tokens.use_hint"}}</p>
+  <p><a class="button primary" href="/account/tokens">{{.T "recovery.done"}}</a></p>
+</section>
+{{end}}
+<section class="card">
+  <h3>{{.T "tokens.create"}}</h3>
+  <form method="post" action="/account/tokens" class="form-grid">
+    <input type="hidden" name="_csrf" value="{{.CSRF}}">
+    <label>{{.T "tokens.name"}}<input name="name" required maxlength="100" placeholder="{{.T "tokens.name_ph"}}"></label>
+    <fieldset class="scope-list">
+      <legend>{{.T "tokens.scopes"}}</legend>
+      {{range .Data.Scopes}}<label class="check"><input type="checkbox" name="scope" value="{{.}}"{{if eq . "read:assets"}} checked{{end}}> <code>{{.}}</code> – {{$.T (print "scope." .)}}</label>
+      {{end}}
+    </fieldset>
+    <label>{{.T "tokens.expires"}}<input name="expires_days" type="number" min="1" max="3650" inputmode="numeric" placeholder="{{.T "tokens.never"}}"></label>
+    <div class="actions"><button type="submit" class="primary">{{.T "tokens.create_btn"}}</button></div>
+  </form>
+  <p class="muted small">{{.T "tokens.limits_hint"}}</p>
+</section>
+<section class="card">
+  <h3>{{.T "tokens.yours"}}</h3>
+  {{if .Data.Tokens}}
+  <table>
+    <thead><tr><th>{{.T "tokens.name"}}</th><th>{{.T "tokens.prefix"}}</th><th>{{.T "tokens.scopes"}}</th><th>{{.T "security.created"}}</th><th>{{.T "tokens.expires_col"}}</th><th>{{.T "security.last_used"}}</th><th></th></tr></thead>
+    <tbody>
+    {{range .Data.Tokens}}
+      <tr{{if .Revoked}} class="muted"{{end}}>
+        <td>{{.Name}}</td>
+        <td><code>{{.Prefix}}…</code></td>
+        <td class="small">{{range .Scopes}}<code>{{.}}</code> {{end}}</td>
+        <td class="small"><time class="ts" data-ts="{{.CreatedAt.Unix}}">{{.CreatedAt.Format "2006-01-02 15:04"}} UTC</time></td>
+        <td class="small">{{if .ExpiresAt}}<time class="ts" data-ts="{{.ExpiresAt.Unix}}">{{.ExpiresAt.Format "2006-01-02 15:04"}} UTC</time>{{if .Expired $.Data.Now}} <span class="badge badge-warn">{{$.T "tokens.expired"}}</span>{{end}}{{else}}–{{end}}</td>
+        <td class="small">{{if .LastUsedAt}}<time class="ts" data-ts="{{.LastUsedAt.Unix}}">{{.LastUsedAt.Format "2006-01-02 15:04"}} UTC</time>{{else}}–{{end}}</td>
+        <td>{{if .Revoked}}<span class="badge badge-muted">{{$.T "tokens.revoked"}}</span>{{else}}
+          <form method="post" action="/account/tokens/{{.ID}}/revoke" data-confirm="{{$.T "tokens.revoke_confirm" .Name}}">
+            <input type="hidden" name="_csrf" value="{{$.CSRF}}"><button class="link danger-text" type="submit">{{$.T "tokens.revoke"}}</button></form>{{end}}</td>
+      </tr>
+    {{end}}
+    </tbody>
+  </table>
+  {{else}}<p class="muted">{{.T "tokens.none"}}</p>{{end}}
+</section>
+{{end}}

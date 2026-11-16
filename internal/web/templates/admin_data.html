@@ -1,0 +1,21 @@
+{{define "content"}}
+{{$d := .Data}}
+<h1>{{.T "data.title"}}</h1>
+<section class="card">
+  <h3>{{.T "data.export_title"}}</h3>
+  <p>{{.T "data.export_intro"}}</p>
+  <div class="actions"><a class="button primary" href="/admin/data/export.json">{{.T "data.export_btn"}}</a></div>
+</section>
+<section class="card">
+  <h3>{{.T "data.import_title"}}</h3>
+  <p>{{.T "data.import_intro"}}</p>
+  <p class="muted small">{{.T "data.hint_users"}}</p>
+  <form method="post" action="/admin/data/import" enctype="multipart/form-data" class="form-grid">
+    <input type="hidden" name="_csrf" value="{{.CSRF}}">
+    <label>{{.T "data.file"}} ({{.T "imp.max_size" $d.MaxMB}})
+      <input type="file" name="file" accept=".json,application/json" required>
+    </label>
+    <div class="actions"><button type="submit" class="primary">{{.T "data.upload"}}</button></div>
+  </form>
+</section>
+{{end}}

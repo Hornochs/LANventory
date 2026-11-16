@@ -1,0 +1,58 @@
+{{define "content"}}
+{{$i := .Data.In}}{{$a := .Data.Asset}}
+<div class="page-head">
+  <h1>{{.T "insp.detail"}}: <a href="/assets/{{$a.ID}}"><code>{{$a.InventoryNo}}</code></a> {{date .Lang $i.InspectedOn}}
+    <span class="badge badge-{{$i.Result}}">{{.T (print "result." $i.Result)}}</span></h1>
+  <div class="actions">
+    <a class="button primary" href="/inspections/{{$i.ID}}/print">{{.T "insp.protocol"}}</a>
+    {{if .Can "admin"}}
+    <form method="post" action="/inspections/{{$i.ID}}/delete" data-confirm="{{.T "insp.delete_confirm" $a.InventoryNo (date .Lang $i.InspectedOn)}}">
+      <input type="hidden" name="_csrf" value="{{.CSRF}}"><button type="submit" class="danger">{{.T "action.delete"}}</button>
+    </form>
+    {{end}}
+  </div>
+</div>
+<div class="grid-2">
+<section class="card">
+  <h3>{{.T "insp.card_title"}}</h3>
+  <table class="kv">
+    <tr><th>{{.T "acol.inventory_no"}}</th><td><a href="/assets/{{$a.ID}}">{{$a.InventoryNo}}</a></td></tr>
+    <tr><th>{{.T "acol.name"}}</th><td>{{$a.Name}}</td></tr>
+    <tr><th>{{.T "acol.category"}}</th><td>{{$a.CategoryName}}</td></tr>
+    <tr><th>{{.T "acol.location"}}</th><td>{{$a.LocationName}}</td></tr>
+    <tr><th>{{.T "insp.col.date"}}</th><td>{{date .Lang $i.InspectedOn}}</td></tr>
+    <tr><th>{{.T "insp.col.result"}}</th><td><span class="badge badge-{{$i.Result}}">{{.T (print "result." $i.Result)}}</span></td></tr>
+    <tr><th>{{.T "insp.col.inspector"}}</th><td>{{$i.InspectorName}}</td></tr>
+    <tr><th>{{.T "insp.recorded_by"}}</th><td>{{$i.RecordedByName}}</td></tr>
+    <tr><th>{{.T "insp.class"}}</th><td>{{$i.ProtectionClass}}</td></tr>
+    <tr><th>{{.T "insp.visual_ok"}}</th><td>{{if $i.VisualOK}}{{.T "yes"}}{{else}}{{.T "no"}}{{end}}</td></tr>
+    <tr><th>{{.T "insp.function_ok"}}</th><td>{{if $i.FunctionOK}}{{.T "yes"}}{{else}}{{.T "no"}}{{end}}</td></tr>
+    <tr><th>{{.T "insp.reason"}}</th><td>{{if $i.Reason}}{{.T (print "reason." $i.Reason)}}{{else}}–{{end}}</td></tr>
+    <tr><th>{{.T "insp.test_device"}}</th><td>{{$i.TestDevice}}</td></tr>
+    <tr><th>{{.T "insp.test_device_id"}}</th><td>{{$i.TestDeviceID}}</td></tr>
+    <tr><th>{{.T "insp.calibrated_until"}}</th><td>{{if $i.TestDeviceCalibratedUntil}}{{date .Lang $i.TestDeviceCalibratedUntil}}{{end}}</td></tr>
+    <tr><th>{{.T "insp.interval"}}</th><td>{{.T "cat.dguv_months" $i.IntervalMonths}}</td></tr>
+    <tr><th>{{.T "insp.col.next_due"}}</th><td>{{date .Lang $i.NextDue}}</td></tr>
+    <tr><th>{{.T "insp.remark"}}</th><td class="pre">{{$i.Remark}}</td></tr>
+  </table>
+</section>
+<section class="card">
+  <h3>{{.T "insp.measurements"}}</h3>
+  <table class="kv">
+    <tr><th>{{.T "insp.pe"}}</th><td>{{with meas .Lang $i.PECmp $i.PEResistanceOhm}}{{.}} Ω{{else}}–{{end}}</td></tr>
+    <tr><th>{{.T "insp.insulation"}}</th><td>{{with meas .Lang $i.InsulationCmp $i.InsulationMOhm}}{{.}} MΩ{{else}}–{{end}}</td></tr>
+    <tr><th>{{.T "insp.leakage"}}</th><td>{{with meas .Lang $i.LeakageCmp $i.LeakageMA}}{{.}} mA{{else}}–{{end}}</td></tr>
+    <tr><th>{{.T "insp.leakage_method"}}</th><td>{{if $i.LeakageMethod}}{{.T (print "method." $i.LeakageMethod)}}{{else}}–{{end}}</td></tr>
+    <tr><th>{{.T "insp.touch"}}</th><td>{{with meas .Lang $i.TouchCmp $i.TouchMA}}{{.}} mA{{else}}–{{end}}</td></tr>
+  </table>
+  {{if .Data.CalibExpired}}<p class="alert alert-warn">{{.T "insp.calib_expired"}}</p>{{end}}
+  {{if .Data.Flags}}
+  <div class="alert alert-warn">
+    <strong>{{.T "insp.guidance"}}</strong>
+    <ul>{{range .Data.Flags}}<li>{{$.T (print "guide." .Key) (num $.Lang .Limit)}}</li>{{end}}</ul>
+    <span class="small">{{.T "insp.guidance_note"}}</span>
+  </div>
+  {{end}}
+</section>
+</div>
+{{end}}

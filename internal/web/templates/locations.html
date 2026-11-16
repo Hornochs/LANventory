@@ -1,0 +1,44 @@
+{{define "content"}}
+<h1>{{.T "locations.title"}}</h1>
+<section class="card">
+  <table>
+    <thead><tr><th>{{.T "col.name"}}</th><th>{{.T "col.description"}}</th><th class="num">{{.T "col.assets"}}</th>{{if .Can "editor"}}<th></th>{{end}}</tr></thead>
+    <tbody>
+    {{range .Data.Locations}}
+      <tr>
+        {{if $.Can "editor"}}
+        <td colspan="2">
+          <form method="post" action="/locations/{{.ID}}" class="inline">
+            <input type="hidden" name="_csrf" value="{{$.CSRF}}">
+            <input name="name" value="{{.Name}}" required maxlength="100" aria-label="{{$.T "col.name"}}">
+            <input name="description" value="{{.Description}}" maxlength="500" aria-label="{{$.T "col.description"}}">
+            <button type="submit">{{$.T "action.save"}}</button>
+          </form>
+        </td>
+        <td class="num"><a href="/assets?location={{.ID}}">{{.AssetCount}}</a></td>
+        <td>
+          <form method="post" action="/locations/{{.ID}}/delete" data-confirm="{{$.T "locations.delete_confirm" .Name}}">
+            <input type="hidden" name="_csrf" value="{{$.CSRF}}"><button class="link danger-text" type="submit">{{$.T "action.delete"}}</button>
+          </form>
+        </td>
+        {{else}}
+        <td>{{.Name}}</td><td>{{.Description}}</td><td class="num"><a href="/assets?location={{.ID}}">{{.AssetCount}}</a></td>
+        {{end}}
+      </tr>
+    {{else}}<tr><td colspan="4" class="muted">{{$.T "locations.none"}}</td></tr>{{end}}
+    </tbody>
+  </table>
+</section>
+{{if .Can "editor"}}
+<section class="card">
+  <h3>{{.T "locations.add"}}</h3>
+  <form method="post" action="/locations" class="form-grid">
+    <input type="hidden" name="_csrf" value="{{.CSRF}}">
+    <label>{{.T "col.name"}}<input name="name" required maxlength="100"></label>
+    <label>{{.T "col.description"}}<input name="description" maxlength="500"></label>
+    <div class="actions"><button type="submit" class="primary">{{.T "locations.add"}}</button></div>
+  </form>
+  <p class="muted small">{{.T "locations.hint"}}</p>
+</section>
+{{end}}
+{{end}}

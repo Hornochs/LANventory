@@ -1,0 +1,17 @@
+{{define "content"}}
+<h1>{{.T "admin_security.title"}}</h1>
+<section class="card">
+  <h3>{{.T "admin_security.policy"}}</h3>
+  <form method="post" action="/admin/security" class="form-grid">
+    <input type="hidden" name="_csrf" value="{{.CSRF}}">
+    {{$cur := .Data.Policy}}
+    <fieldset class="radio-list">
+      {{range mfaPolicies}}
+      <label class="check"><input type="radio" name="mfa_policy" value="{{.}}"{{if eq . $cur}} checked{{end}}> {{$.T (print "policy." .)}}</label>
+      {{end}}
+    </fieldset>
+    <div class="actions"><button type="submit" class="primary">{{.T "action.save"}}</button></div>
+  </form>
+  <p class="muted small">{{.T "admin_security.hint"}}</p>
+</section>
+{{end}}

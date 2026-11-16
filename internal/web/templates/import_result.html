@@ -1,0 +1,22 @@
+{{define "content"}}
+{{$d := .Data}}
+<h1>{{.T "imp.title"}}: {{.T "imp.step_done"}}</h1>
+<section class="card">
+  <p class="alert alert-ok">{{.T "imp.done" $d.Result.Create $d.Result.Update}}</p>
+  <p>
+    <span class="badge badge-ok">{{.T "imp.a.create"}}: {{$d.Result.Create}}</span>
+    <span class="badge badge-warn">{{.T "imp.a.update"}}: {{$d.Result.Update}}</span>
+    <span class="badge badge-muted">{{.T "imp.a.skip"}}: {{$d.Result.Skip}}</span>
+    <span class="badge badge-lost">{{.T "imp.a.error"}}: {{$d.Result.Errors}}</span>
+    {{if or $d.Result.Inspections $d.Result.InspectionsExisting}}<span class="badge badge-ok">{{.T "imp.inspections" $d.Result.Inspections}}</span>
+    {{if $d.Result.InspectionsExisting}}<span class="badge badge-muted">{{.T "imp.inspections_existing" $d.Result.InspectionsExisting}}</span>{{end}}{{end}}
+  </p>
+  <div class="actions"><a class="button primary" href="/assets">{{.T "imp.to_assets"}}</a> <a class="button" href="/assets/import">{{.T "imp.another"}}</a></div>
+</section>
+{{if $d.Invalid}}
+<section class="card">
+  <h3>{{.T "imp.not_imported"}}</h3>
+  {{template "import_rows" (dict2 . $d.Invalid)}}
+</section>
+{{end}}
+{{end}}

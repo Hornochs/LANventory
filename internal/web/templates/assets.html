@@ -1,0 +1,84 @@
+{{define "content"}}
+{{$d := .Data}}
+<div class="page-head">
+  <h1>{{.T "assets.title"}}</h1>
+  {{if .Can "editor"}}<p class="actions"><a class="button" href="/assets/import">{{.T "assets.import"}}</a> <a class="button primary" href="/assets/new">{{.T "assets.new"}}</a></p>{{end}}
+</div>
+<form id="filters" class="card filters" method="get" action="/assets" hx-get="/assets" hx-target="#results" hx-push-url="true"
+  hx-trigger="input changed delay:300ms, change changed, submit">
+  <label>{{.T "assets.search"}}<input type="search" name="q" value="{{$d.Q}}" placeholder="{{.T "assets.search_ph"}}" autocomplete="off"></label>
+  <label>{{.T "acol.category"}}
+    <select name="category"><option value="">{{.T "filter.all"}}</option>
+    {{range $d.Categories}}<option value="{{.ID}}"{{if eq .ID $d.CategoryID}} selected{{end}}>{{.Name}}</option>{{end}}</select>
+  </label>
+  <label>{{.T "acol.location"}}
+    <select name="location"><option value="">{{.T "filter.all"}}</option>
+    {{range $d.Locations}}<option value="{{.ID}}"{{if eq .ID $d.LocationID}} selected{{end}}>{{.Name}}</option>{{end}}</select>
+  </label>
+  <label>{{.T "acol.status"}}
+    <select name="status"><option value="">{{.T "filter.all"}}</option>
+    {{range $d.Statuses}}<option value="{{.}}"{{if eq . $d.Status}} selected{{end}}>{{$.T (print "status." .)}}</option>{{end}}</select>
+  </label>
+  <div id="field-filters" class="filters">{{template "asset_fieldfilters" .}}</div>
+  {{if ne $d.Sort "inventory_no"}}<input type="hidden" name="sort" value="{{$d.Sort}}">{{end}}
+  {{if $d.Desc}}<input type="hidden" name="dir" value="desc">{{end}}
+  <div class="actions"><button type="submit" class="primary">{{.T "filter.apply"}}</button>{{if $d.Filtered}} <a class="button" href="/assets">{{.T "filter.reset"}}</a>{{end}}</div>
+</form>
+{{if .Can "editor"}}<form id="bulk-form" method="post" action="/assets/bulk/edit" hidden><input type="hidden" name="_csrf" value="{{.CSRF}}"></form>{{end}}
+<section class="card">
+  <div id="results" aria-live="polite">{{template "asset_results" .}}</div>
+</section>
+{{end}}
+
+{{define "asset_fieldfilters"}}{{$d := .Data}}{{range $d.Fields}}{{$cur := index $d.FieldVals .Key}}
+  <label>{{.Label}}
+    <select name="f_{{.Key}}"><option value="">{{$.T "filter.all"}}</option>
+    {{if eq .Type "bool"}}<option value="1"{{if eq $cur "1"}} selected{{end}}>{{$.T "yes"}}</option><option value="0"{{if eq $cur "0"}} selected{{end}}>{{$.T "no"}}</option>
+    {{else}}{{range .Options}}<option value="{{.}}"{{if eq . $cur}} selected{{end}}>{{.}}</option>{{end}}{{end}}</select>
+  </label>
+{{end}}{{end}}
+
+{{define "asset_fragment"}}{{template "asset_results" .}}<div id="field-filters" class="filters" hx-swap-oob="true">{{template "asset_fieldfilters" .}}</div>{{end}}
+
+{{define "asset_results"}}{{$d := .Data}}
+<p class="muted small">{{.T "assets.count" $d.Result.Total}} · <a href="{{$d.CSVURL}}" download>{{.T "assets.export"}}</a></p>
+{{if .Can "editor"}}{{if $d.Result.Assets}}
+<div class="bulk-bar" data-bulk-bar>
+  <span data-bulk-count data-template="{{.T "bulk.count"}}">{{.T "bulk.count" 0}}</span>
+  <button type="submit" form="bulk-form" class="primary" data-bulk-submit disabled>{{.T "bulk.edit"}}</button>
+  <input type="hidden" name="filter" value="{{$d.BulkFilter}}" form="bulk-form">
+  {{if gt $d.Result.Total (len $d.Result.Assets)}}
+    {{if le $d.Result.Total $d.BulkMax}}<label class="check"><input type="checkbox" name="all_matches" value="1" form="bulk-form" data-bulk-all data-total="{{$d.Result.Total}}"> {{.T "bulk.all_matches" $d.Result.Total}}</label>
+    {{else}}<span class="muted small">{{.T "bulk.too_many" $d.BulkMax}}</span>{{end}}
+  {{end}}
+</div>
+{{end}}{{end}}
+<div class="table-wrap">
+<table class="assets">
+  <thead><tr>
+  {{if .Can "editor"}}<th class="bulk-col"><input type="checkbox" data-bulk-selectall aria-label="{{.T "bulk.select_all"}}" title="{{.T "bulk.select_all"}}"></th>{{end}}
+  {{range $d.Sorts}}<th><a href="{{.URL}}" hx-get="{{.URL}}" hx-target="#results" hx-push-url="true">{{$.T (print "acol." .Key)}}{{if .Active}}{{if .Desc}} ▼{{else}} ▲{{end}}{{end}}</a></th>{{end}}
+  </tr></thead>
+  <tbody>
+  {{range $d.Result.Assets}}
+    <tr>
+      {{if $.Can "editor"}}<td class="bulk-col"><input type="checkbox" name="id" value="{{.ID}}" form="bulk-form" data-bulk-row aria-label="{{$.T "bulk.select_row"}} {{.InventoryNo}}"></td>{{end}}
+      <td class="nowrap"><a href="/assets/{{.ID}}">{{.InventoryNo}}</a></td>
+      <td>{{.Name}}</td>
+      <td>{{.CategoryName}}</td>
+      <td>{{.LocationName}}</td>
+      <td><span class="badge badge-{{.Status}}">{{$.T (print "status." .Status)}}</span></td>
+      <td class="small nowrap"><time class="ts" data-ts="{{.UpdatedAt.Unix}}" datetime="{{.UpdatedAt.Format "2006-01-02T15:04:05Z"}}">{{.UpdatedAt.Format "2006-01-02 15:04"}} UTC</time></td>
+    </tr>
+  {{else}}<tr><td colspan="7" class="muted">{{$.T "assets.none"}}</td></tr>{{end}}
+  </tbody>
+</table>
+</div>
+{{if gt $d.Result.Pages 1}}
+<nav class="pager" aria-label="{{.T "pager.label"}}">
+  {{if $d.PrevURL}}<a class="button" href="{{$d.PrevURL}}" hx-get="{{$d.PrevURL}}" hx-target="#results" hx-push-url="true">← {{.T "pager.prev"}}</a>{{end}}
+  <span class="muted small">{{.T "pager.page" $d.Result.Page $d.Result.Pages}}</span>
+  {{if $d.NextURL}}<a class="button" href="{{$d.NextURL}}" hx-get="{{$d.NextURL}}" hx-target="#results" hx-push-url="true">{{.T "pager.next"}} →</a>{{end}}
+</nav>
+{{end}}
+{{end}}

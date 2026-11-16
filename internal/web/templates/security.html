@@ -1,0 +1,81 @@
+{{define "content"}}
+<h1>{{.T "security.title"}}</h1>
+{{with .Data}}
+<p class="muted">{{if .Status.Enabled}}{{$.T "security.status_on"}}{{else}}{{$.T "security.status_off"}}{{end}}
+  {{if .Required}} · <strong>{{$.T "security.required"}}</strong>{{end}}</p>
+{{if not .Recent}}<p class="alert alert-info">{{$.T "security.reauth_hint"}} <a href="/reauth?next=/account/security">{{$.T "reauth.title"}}</a></p>{{end}}
+
+<section class="card" id="passkeys">
+  <h3>{{$.T "security.passkeys"}}</h3>
+  <p class="muted small">{{$.T "security.passkeys_hint"}}</p>
+  {{if .Passkeys}}
+  <table>
+    <thead><tr><th>{{$.T "security.passkey_name"}}</th><th>{{$.T "security.created"}}</th><th>{{$.T "security.last_used"}}</th><th></th></tr></thead>
+    <tbody>
+    {{range .Passkeys}}
+      <tr>
+        <td>{{.Name}}{{if .Credential.Authenticator.CloneWarning}} <span class="badge badge-warn">{{$.T "security.clone_warning"}}</span>{{end}}</td>
+        <td class="small"><time class="ts" data-ts="{{.CreatedAt.Unix}}">{{.CreatedAt.Format "2006-01-02 15:04"}} UTC</time></td>
+        <td class="small">{{if .LastUsedAt}}<time class="ts" data-ts="{{.LastUsedAt.Unix}}">{{.LastUsedAt.Format "2006-01-02 15:04"}} UTC</time>{{else}}–{{end}}</td>
+        <td><form method="post" action="/account/passkeys/{{.ID}}/delete" data-confirm="{{$.T "security.passkey_delete_confirm" .Name}}">
+          <input type="hidden" name="_csrf" value="{{$.CSRF}}"><button class="link danger-text" type="submit">{{$.T "action.delete"}}</button></form></td>
+      </tr>
+    {{end}}
+    </tbody>
+  </table>
+  {{end}}
+  {{if .PasskeysReady}}
+  <div class="inline" data-passkey-support hidden>
+    <input id="passkey-name" maxlength="64" placeholder="{{$.T "security.passkey_name_ph"}}" aria-label="{{$.T "security.passkey_name"}}">
+    <button type="button" class="primary" data-passkey="create" data-msg-cancel="{{$.T "error.passkey_cancelled"}}" data-name-input="passkey-name"
+      data-options="/account/passkeys/options" data-finish="/account/passkeys/finish">{{$.T "security.passkey_add"}}</button>
+  </div>
+  <p class="muted small" data-passkey-nosupport hidden>{{$.T "security.passkeys_browser"}}</p>
+  <p class="alert alert-error" data-passkey-error hidden></p>
+  {{else}}
+  <p class="muted small">{{$.T "security.passkeys_unavailable"}}</p>
+  {{end}}
+</section>
+
+<section class="card" id="totp">
+  <h3>{{$.T "security.totp"}}</h3>
+  {{if .Status.TOTP}}
+    <p>{{$.T "security.totp_on"}}</p>
+    <form method="post" action="/account/totp/disable" data-confirm="{{$.T "security.totp_disable_confirm"}}">
+      <input type="hidden" name="_csrf" value="{{$.CSRF}}"><button type="submit" class="danger">{{$.T "security.totp_disable"}}</button></form>
+  {{else if .Status.TOTPPending}}
+    <p>{{$.T "security.totp_scan"}}</p>
+    <div class="totp-setup">
+      <img src="{{.QR}}" alt="{{$.T "security.totp_qr"}}" width="240" height="240" class="qr">
+      <div>
+        <p class="small muted">{{$.T "security.totp_manual"}}</p>
+        <p><code class="secret">{{.Secret}}</code></p>
+        <form method="post" action="/account/totp/confirm" class="inline">
+          <input type="hidden" name="_csrf" value="{{$.CSRF}}">
+          <input name="code" inputmode="numeric" autocomplete="one-time-code" required maxlength="8" placeholder="123456" aria-label="{{$.T "mfa.code"}}">
+          <button type="submit" class="primary">{{$.T "security.totp_confirm"}}</button>
+        </form>
+        <form method="post" action="/account/totp/disable"><input type="hidden" name="_csrf" value="{{$.CSRF}}">
+          <button type="submit" class="link small">{{$.T "action.cancel"}}</button></form>
+      </div>
+    </div>
+  {{else}}
+    <p class="muted small">{{$.T "security.totp_hint"}}</p>
+    <form method="post" action="/account/totp/setup"><input type="hidden" name="_csrf" value="{{$.CSRF}}">
+      <button type="submit" class="primary">{{$.T "security.totp_setup"}}</button></form>
+  {{end}}
+</section>
+
+<section class="card" id="recovery">
+  <h3>{{$.T "security.recovery"}}</h3>
+  {{if .Status.Enabled}}
+    <p>{{$.T "security.recovery_left" .Status.RecoveryLeft}}</p>
+    {{if eq .Status.RecoveryLeft 0}}<p class="alert alert-error">{{$.T "security.recovery_none"}}</p>{{end}}
+    <form method="post" action="/account/recovery/regenerate" {{if gt .Status.RecoveryLeft 0}}data-confirm="{{$.T "security.recovery_regen_confirm"}}"{{end}}>
+      <input type="hidden" name="_csrf" value="{{$.CSRF}}"><button type="submit">{{$.T "security.recovery_regen"}}</button></form>
+  {{else}}
+    <p class="muted small">{{$.T "security.recovery_hint"}}</p>
+  {{end}}
+</section>
+{{end}}
+{{end}}

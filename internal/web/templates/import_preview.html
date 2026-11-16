@@ -1,0 +1,33 @@
+{{define "content"}}
+{{$d := .Data}}
+<h1>{{.T "imp.title"}}: {{.T "imp.step_preview"}}</h1>
+<section class="card">
+  <p>
+    <span class="badge badge-ok">{{.T "imp.a.create"}}: {{$d.Result.Create}}</span>
+    <span class="badge badge-warn">{{.T "imp.a.update"}}: {{$d.Result.Update}}</span>
+    <span class="badge badge-muted">{{.T "imp.a.skip"}}: {{$d.Result.Skip}}</span>
+    <span class="badge badge-lost">{{.T "imp.a.error"}}: {{$d.Result.Errors}}</span>
+    {{if or $d.Result.Inspections $d.Result.InspectionsExisting}}<span class="badge badge-ok">{{.T "imp.inspections" $d.Result.Inspections}}</span>
+    {{if $d.Result.InspectionsExisting}}<span class="badge badge-muted">{{.T "imp.inspections_existing" $d.Result.InspectionsExisting}}</span>{{end}}{{end}}
+  </p>
+  {{if $d.Blocked}}<p class="alert alert-error">{{.T "imp.blocked"}}</p>
+  {{else if $d.Result.Errors}}<p class="muted">{{.T "imp.will_skip" $d.Result.Errors}}</p>{{end}}
+  <p class="muted small">{{.T "imp.preview_hint"}}</p>
+  <div class="actions">
+    <form method="post" action="/assets/import/map">
+      <input type="hidden" name="_csrf" value="{{.CSRF}}"><input type="hidden" name="token" value="{{$d.Token}}">
+      <button type="submit">{{.T "imp.back"}}</button>
+    </form>
+    {{if $d.CanImport}}
+    <form method="post" action="/assets/import/confirm">
+      <input type="hidden" name="_csrf" value="{{.CSRF}}"><input type="hidden" name="token" value="{{$d.Token}}">
+      <button type="submit" class="primary">{{.T "imp.confirm"}}</button>
+    </form>
+    {{end}}
+  </div>
+</section>
+<section class="card">
+  {{if gt (len $d.Result.Rows) $d.Shown}}<p class="muted small">{{.T "imp.shown" $d.Shown (len $d.Result.Rows)}}</p>{{end}}
+  {{template "import_rows" (dict2 . $d.Rows)}}
+</section>
+{{end}}

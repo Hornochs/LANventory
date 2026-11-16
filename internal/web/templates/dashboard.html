@@ -1,0 +1,47 @@
+{{define "content"}}
+<div class="page-head">
+  <h1>{{.T "dash.title"}}</h1>
+  {{if .Can "editor"}}<p class="actions"><a class="button primary" href="/assets/new">{{.T "assets.new"}}</a></p>{{end}}
+</div>
+<div class="grid-3">
+  <section class="card stat">
+    <p class="eyebrow">{{.T "dash.assets"}}</p>
+    <p class="stat-value"><a href="/assets">{{.Data.Total}}</a></p>
+  </section>
+  <section class="card stat">
+    <p class="eyebrow">{{.T "dash.users"}}</p>
+    <p class="stat-value">{{.Data.Users}}</p>
+  </section>
+</div>
+<section class="card" id="dguv-widget">
+  <h3>{{.T "dash.dguv"}}</h3>
+  <div class="grid-3">
+    <p class="stat"><span class="eyebrow">{{.T "dstate.overdue"}}</span><br><a class="stat-value" data-count="overdue" href="/inspections/due?state=overdue">{{.Data.DGUV.Overdue}}</a></p>
+    <p class="stat"><span class="eyebrow">{{.T "dash.due_soon" 30}}</span><br><a class="stat-value" data-count="soon" href="/inspections/due?state=soon">{{.Data.DGUV.Soon}}</a></p>
+    <p class="stat"><span class="eyebrow">{{.T "dstate.never"}}</span><br><a class="stat-value" data-count="never" href="/inspections/due?state=never">{{.Data.DGUV.Never}}</a></p>
+  </div>
+</section>
+<div class="grid-2">
+  <section class="card">
+    <h3>{{.T "dash.by_status"}}</h3>
+    <table>
+      <tbody>
+      {{range .Data.Statuses}}
+        <tr><td><span class="badge badge-{{.Status}}">{{$.T (print "status." .Status)}}</span></td>
+            <td class="num"><a href="/assets?status={{.Status}}">{{.N}}</a></td></tr>
+      {{end}}
+      </tbody>
+    </table>
+  </section>
+  <section class="card">
+    <h3>{{.T "dash.by_category"}}</h3>
+    <table>
+      <tbody>
+      {{range .Data.Categories}}
+        <tr><td><a href="/assets?category={{.ID}}">{{.Name}}</a></td><td class="num">{{.AssetCount}}</td></tr>
+      {{else}}<tr><td class="muted">{{$.T "categories.none"}}</td></tr>{{end}}
+      </tbody>
+    </table>
+  </section>
+</div>
+{{end}}

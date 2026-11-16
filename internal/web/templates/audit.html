@@ -1,0 +1,15 @@
+{{define "content"}}
+<h1>{{.T "audit.title"}}</h1>
+<section class="card">
+  <table>
+    <thead><tr><th>{{.T "audit.time"}}</th><th>{{.T "audit.actor"}}</th><th>{{.T "audit.action"}}</th><th>{{.T "audit.object"}}</th><th>{{.T "audit.details"}}</th><th>IP</th></tr></thead>
+    <tbody>
+    {{range .Data}}
+      <tr><td class="nowrap small"><time class="ts" data-ts="{{.TS.Unix}}" datetime="{{.TS.Format "2006-01-02T15:04:05Z"}}">{{.TS.Format "2006-01-02 15:04:05"}} UTC</time></td>
+          <td>{{.Actor}}</td><td><code>{{.Action}}</code></td>
+          <td>{{.ObjectType}}{{if .ObjectID}} #{{.ObjectID}}{{end}}</td><td class="small"><code>{{.RawDetails}}</code></td><td class="small">{{.IP}}</td></tr>
+    {{else}}<tr><td colspan="6" class="muted">{{.T "audit.none"}}</td></tr>{{end}}
+    </tbody>
+  </table>
+</section>
+{{end}}

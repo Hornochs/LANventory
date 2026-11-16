@@ -1,0 +1,27 @@
+{{define "content"}}
+<h1>{{.T "admin_tokens.title"}}</h1>
+<p class="muted">{{.T "admin_tokens.intro"}}</p>
+<section class="card">
+  {{if .Data.Tokens}}
+  <table>
+    <thead><tr><th>{{.T "tokens.name"}}</th><th>{{.T "tokens.owner"}}</th><th>{{.T "tokens.prefix"}}</th><th>{{.T "tokens.scopes"}}</th><th>{{.T "security.created"}}</th><th>{{.T "tokens.expires_col"}}</th><th>{{.T "security.last_used"}}</th><th></th></tr></thead>
+    <tbody>
+    {{range .Data.Tokens}}
+      <tr{{if .Revoked}} class="muted"{{end}}>
+        <td>{{.Name}}</td>
+        <td>{{.OwnerName}}</td>
+        <td><code>{{.Prefix}}…</code></td>
+        <td class="small">{{range .Scopes}}<code>{{.}}</code> {{end}}</td>
+        <td class="small"><time class="ts" data-ts="{{.CreatedAt.Unix}}">{{.CreatedAt.Format "2006-01-02 15:04"}} UTC</time></td>
+        <td class="small">{{if .ExpiresAt}}<time class="ts" data-ts="{{.ExpiresAt.Unix}}">{{.ExpiresAt.Format "2006-01-02 15:04"}} UTC</time>{{if .Expired $.Data.Now}} <span class="badge badge-warn">{{$.T "tokens.expired"}}</span>{{end}}{{else}}–{{end}}</td>
+        <td class="small">{{if .LastUsedAt}}<time class="ts" data-ts="{{.LastUsedAt.Unix}}">{{.LastUsedAt.Format "2006-01-02 15:04"}} UTC</time>{{else}}–{{end}}</td>
+        <td>{{if .Revoked}}<span class="badge badge-muted">{{$.T "tokens.revoked"}}</span>{{else}}
+          <form method="post" action="/admin/tokens/{{.ID}}/revoke" data-confirm="{{$.T "tokens.revoke_confirm" .Name}}">
+            <input type="hidden" name="_csrf" value="{{$.CSRF}}"><button class="link danger-text" type="submit">{{$.T "tokens.revoke"}}</button></form>{{end}}</td>
+      </tr>
+    {{end}}
+    </tbody>
+  </table>
+  {{else}}<p class="muted">{{.T "tokens.none"}}</p>{{end}}
+</section>
+{{end}}

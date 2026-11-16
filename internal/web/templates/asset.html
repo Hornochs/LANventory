@@ -1,0 +1,89 @@
+{{define "content"}}
+{{$a := .Data.Asset}}{{$g := .Data.DGUV}}
+<div class="page-head">
+  <h1><code>{{$a.InventoryNo}}</code> {{$a.Name}} <span class="badge badge-{{$a.Status}}">{{.T (print "status." $a.Status)}}</span></h1>
+  <div class="actions">
+    {{if .Can "editor"}}<a class="button primary" href="/assets/{{$a.ID}}/edit">{{.T "action.edit"}}</a>{{end}}
+    {{if .Can "admin"}}
+    <form method="post" action="/assets/{{$a.ID}}/delete" data-confirm="{{.T "assets.delete_confirm" $a.InventoryNo}}">
+      <input type="hidden" name="_csrf" value="{{.CSRF}}"><button type="submit" class="danger">{{.T "action.delete"}}</button>
+    </form>
+    {{end}}
+  </div>
+</div>
+<div class="grid-2">
+<section class="card">
+  <h3>{{.T "assets.core"}}</h3>
+  <table class="kv">
+    <tr><th>{{.T "acol.category"}}</th><td><a href="/categories/{{$a.CategoryID}}">{{$a.CategoryName}}</a></td></tr>
+    <tr><th>{{.T "acol.serial_no"}}</th><td>{{$a.SerialNo}}</td></tr>
+    <tr><th>{{.T "acol.manufacturer"}}</th><td>{{$a.Manufacturer}}</td></tr>
+    <tr><th>{{.T "acol.model"}}</th><td>{{$a.Model}}</td></tr>
+    <tr><th>{{.T "acol.location"}}</th><td>{{if $a.LocationID}}<a href="/assets?location={{$a.LocationID}}">{{$a.LocationName}}</a>{{end}}</td></tr>
+    <tr><th>{{.T "acol.purchase_date"}}</th><td>{{date .Lang $a.PurchaseDate}}</td></tr>
+    {{if .Data.Category.DGUVRequired}}
+    <tr><th>{{.T "acol.dguv_interval"}}</th><td>{{if $a.DGUVIntervalMonths}}{{.T "cat.dguv_months" $a.DGUVIntervalMonths}} ({{.T "assets.override"}}){{else}}{{.T "cat.dguv_months" .Data.Category.DGUVIntervalMonths}}{{end}}</td></tr>
+    {{end}}
+    <tr><th>{{.T "acol.note"}}</th><td class="pre">{{$a.Note}}</td></tr>
+    <tr><th>{{.T "assets.created"}}</th><td class="small"><time class="ts" data-ts="{{$a.CreatedAt.Unix}}" datetime="{{$a.CreatedAt.Format "2006-01-02T15:04:05Z"}}">{{$a.CreatedAt.Format "2006-01-02 15:04"}} UTC</time></td></tr>
+    <tr><th>{{.T "acol.updated"}}</th><td class="small"><time class="ts" data-ts="{{$a.UpdatedAt.Unix}}" datetime="{{$a.UpdatedAt.Format "2006-01-02T15:04:05Z"}}">{{$a.UpdatedAt.Format "2006-01-02 15:04"}} UTC</time></td></tr>
+  </table>
+</section>
+<section class="card">
+  <h3>{{.T "assets.fields"}}</h3>
+  <table class="kv">
+    {{range .Data.Values}}
+    <tr><th>{{.Label}}</th><td>{{if eq .Type "bool"}}{{if eq .Value "1"}}{{$.T "yes"}}{{else if eq .Value "0"}}{{$.T "no"}}{{end}}{{else if eq .Type "number"}}{{num $.Lang .Value}}{{if and .Value .Unit}} {{.Unit}}{{end}}{{else if eq .Type "date"}}{{date $.Lang .Value}}{{else}}{{.Value}}{{if and .Value .Unit}} {{.Unit}}{{end}}{{end}}</td></tr>
+    {{else}}<tr><td class="muted">{{$.T "cat.no_fields"}}</td></tr>{{end}}
+  </table>
+</section>
+</div>
+<section class="card" id="dguv">
+  <div class="card-head">
+    <h3>{{.T "insp.card_title"}}</h3>
+    {{if $g.CanRecord}}<a class="button primary" href="/assets/{{$a.ID}}/inspections/new">{{.T "insp.record"}}</a>{{end}}
+  </div>
+  {{if not $g.Required}}<p class="muted">{{.T "insp.not_required"}}</p>
+  {{else}}
+  <p><span class="badge badge-due-{{$g.State}}">{{.T (print "dstate." $g.State)}}</span>
+    {{if eq $g.State "ok"}}{{.T "insp.ok_until" (date .Lang $g.NextDue)}}{{else if $g.NextDue}}{{.T "insp.due_on" (date .Lang $g.NextDue)}}{{end}}</p>
+  {{if $g.Inactive}}<p class="muted">{{.T "insp.inactive"}}</p>{{end}}
+  {{end}}
+  {{with $g.Last}}<p class="small">{{$.T "insp.last"}}: <a href="/inspections/{{.ID}}">{{date $.Lang .InspectedOn}}</a>,
+    <span class="badge badge-{{.Result}}">{{$.T (print "result." .Result)}}</span>, {{.InspectorName}}</p>{{end}}
+  {{if $g.List}}
+  <table class="assets">
+    <thead><tr><th>{{.T "insp.col.date"}}</th><th>{{.T "insp.col.result"}}</th><th>{{.T "insp.col.inspector"}}</th><th>{{.T "insp.col.next_due"}}</th></tr></thead>
+    <tbody>
+    {{range $g.List}}<tr>
+      <td class="nowrap"><a href="/inspections/{{.ID}}">{{date $.Lang .InspectedOn}}</a></td>
+      <td><span class="badge badge-{{.Result}}">{{$.T (print "result." .Result)}}</span></td>
+      <td>{{.InspectorName}}</td>
+      <td class="nowrap">{{date $.Lang .NextDue}}</td>
+    </tr>{{end}}
+    </tbody>
+  </table>
+  {{else if $g.Required}}<p class="muted">{{.T "insp.none_asset"}}</p>{{end}}
+</section>
+<section class="card">
+  <h3>{{.T "history.title"}}</h3>
+  <table class="history">
+    <tbody>
+    {{range .Data.History}}
+      <tr>
+        <td class="nowrap small"><time class="ts" data-ts="{{.TS.Unix}}" datetime="{{.TS.Format "2006-01-02T15:04:05Z"}}">{{.TS.Format "2006-01-02 15:04"}} UTC</time></td>
+        <td>{{.User}}</td>
+        <td>{{if eq .Action "asset.create"}}{{$.T "history.created"}}{{else}}{{$.T "history.updated"}}{{end}}</td>
+        <td class="small">
+          {{range .Changes}}
+            {{if .Status}}<div class="change change-status"><strong>{{.Label}}:</strong>
+              {{if .Old}}<span class="badge badge-{{.Old}}">{{$.T (print "status." .Old)}}</span> → {{end}}<span class="badge badge-{{.New}}">{{$.T (print "status." .New)}}</span></div>
+            {{else}}<div class="change"><strong>{{.Label}}:</strong> {{if .Old}}{{.Old}}{{else}}–{{end}} → {{if .New}}{{.New}}{{else}}–{{end}}</div>{{end}}
+          {{end}}
+        </td>
+      </tr>
+    {{else}}<tr><td class="muted">{{$.T "history.none"}}</td></tr>{{end}}
+    </tbody>
+  </table>
+</section>
+{{end}}

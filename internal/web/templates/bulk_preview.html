@@ -1,0 +1,54 @@
+{{define "content"}}
+{{$d := .Data}}
+<h1>{{.T "bulk.preview_title"}}</h1>
+<section class="card">
+  {{if $d.Errors}}
+  <table class="assets">
+        <tbody>
+    {{range $d.Errors}}<tr>
+      <td>{{.Label}}</td><td>{{.Message}}</td>
+      <td class="small">{{$.T "bulk.error_assets" .Count}}: {{range $i, $n := .Numbers}}{{if $i}}, {{end}}<code>{{$n}}</code>{{end}}{{if .More}} {{$.T "bulk.and_more" .More}}{{end}}</td>
+    </tr>{{end}}
+    </tbody>
+  </table>
+  {{else}}
+  <p><strong>{{.T "bulk.will_change" $d.Changed $d.Count}}</strong></p>
+  {{if not $d.Changed}}<p class="muted">{{.T "bulk.no_changes"}}</p>{{end}}
+  {{end}}
+  <div class="actions">
+    <form method="post" action="/assets/bulk/edit">
+      <input type="hidden" name="_csrf" value="{{.CSRF}}">
+      {{range $d.Hidden}}<input type="hidden" name="{{.Name}}" value="{{.Value}}">{{end}}
+      <button type="submit">{{.T "bulk.back"}}</button>
+    </form>
+    {{if and (not $d.Errors) $d.Changed}}
+    <form method="post" action="/assets/bulk/apply">
+      <input type="hidden" name="_csrf" value="{{.CSRF}}">
+      {{range $d.Hidden}}<input type="hidden" name="{{.Name}}" value="{{.Value}}">{{end}}
+      <button type="submit" class="primary">{{.T "bulk.apply"}}</button>
+    </form>
+    {{end}}
+  </div>
+</section>
+{{if $d.Rows}}
+<section class="card">
+  <div class="table-wrap">
+  <table class="assets bulk-preview">
+    <thead><tr><th>{{.T "bulk.col_asset"}}</th><th>{{.T "bulk.col_changes"}}</th></tr></thead>
+    <tbody>
+    {{range $d.Rows}}<tr>
+      <td class="nowrap"><a href="/assets/{{.ID}}">{{.InventoryNo}}</a><br><span class="muted small">{{.Name}}</span></td>
+      <td>
+        <ul class="bulk-changes">
+        {{range .Changes}}<li><span class="muted">{{.Label}}:</span> {{if .Old}}{{.Old}}{{else}}–{{end}} → {{if .New}}<strong>{{.New}}</strong>{{else}}–{{end}}</li>{{end}}
+        </ul>
+        {{if .Lost}}<p class="small alert alert-warn">{{$.T "bulk.lost"}}: {{range $i, $l := .Lost}}{{if $i}}; {{end}}{{$l.Label}} = {{if eq $l.Type "bool"}}{{if eq $l.Value "1"}}{{$.T "yes"}}{{else}}{{$.T "no"}}{{end}}{{else}}{{$l.Value}}{{if $l.Unit}} {{$l.Unit}}{{end}}{{end}}{{end}}</p>{{end}}
+      </td>
+    </tr>{{end}}
+    </tbody>
+  </table>
+  </div>
+  {{if $d.Unchanged}}<p class="muted small">{{$d.Unchanged}} × {{.T "bulk.unchanged"}}</p>{{end}}
+</section>
+{{end}}
+{{end}}
