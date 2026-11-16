@@ -23,12 +23,12 @@ go test -short ./...     # skip the slower tests
   `go run ./tools/gendocs`.
 - The race detector (`go test -race ./...`) needs a C compiler and runs in CI only.
 
-If your Go is newer than the one in `go.mod`, set `GOTOOLCHAIN=local` so that `go get` does not
-pull module versions that need a newer toolchain.
+`go.mod` names Go 1.26 and the toolchain version; an older installed Go downloads it
+automatically (leave `GOTOOLCHAIN` unset).
 
 ## Linter
 
-CI uses golangci-lint v1.64.8:
+CI uses golangci-lint v2.15.0 with `.golangci.yml` (standard linters, gofmt):
 
 ```bash
 golangci-lint run

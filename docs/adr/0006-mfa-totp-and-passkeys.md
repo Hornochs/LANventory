@@ -27,5 +27,6 @@ are weak, and many teams already use authenticator apps or hardware keys.
 - Losing `secret.key` makes TOTP seeds unreadable (users fall back to recovery codes or an admin
   reset); it must be backed up with the database.
 - TOTP is implemented in-house (~100 lines, RFC test vectors) instead of adding a library.
-  New dependencies: `go-webauthn` (pinned to v0.15.0, the last release for Go 1.24) and
+  New dependencies: `go-webauthn` (first pinned to v0.15.0 for Go 1.24; v0.18 since the move
+  to Go 1.26) and
   `skip2/go-qrcode` for the enrollment QR code.

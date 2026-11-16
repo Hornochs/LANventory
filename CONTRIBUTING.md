@@ -6,8 +6,8 @@ refer to its step numbers in issues and pull requests.
 
 ## Development setup
 
-You need Go 1.24 or newer. If your Go is newer, set `GOTOOLCHAIN=local` so that `go get` does
-not pull dependencies that require a newer toolchain.
+You need Go 1.26 or newer (`go.mod` names the toolchain; an older Go downloads it automatically
+unless `GOTOOLCHAIN=local` is set).
 
 ```bash
 go vet ./...
@@ -20,7 +20,7 @@ echo 'a-long-password' | ./bin/lanventory -c config.yaml user create admin --rol
 
 ## Tests
 
-`go test ./...` and `golangci-lint run` (v1.64.8, as in CI) must pass. The browser end-to-end
+`go test ./...` and `golangci-lint run` (v2.15.0, as in CI) must pass. The browser end-to-end
 scripts in `tools/e2e/` are run by hand against a live instance. Details in
 [docs/testing.md](docs/testing.md).
 

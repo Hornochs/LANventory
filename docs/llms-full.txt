@@ -741,10 +741,8 @@ authentication, token binding and the upload → preview → confirm flow with a
 
 ## Third-party code
 
-Go: `go-webauthn/webauthn` is pinned to v0.15.0, the last release that supports Go 1.24
-(v0.16+ needs Go 1.25); Dependabot ignores newer versions until the toolchain moves.
-`skip2/go-qrcode` renders the TOTP QR code. `getkin/kin-openapi` v0.133.0 is a test-only
-dependency (response validation against the OpenAPI document).
+Go 1.26. `go-webauthn/webauthn` handles passkeys, `skip2/go-qrcode` renders the TOTP QR code,
+`getkin/kin-openapi` is a test-only dependency (response validation against the OpenAPI document).
 
 ## Third-party files
 

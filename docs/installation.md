@@ -92,7 +92,7 @@ docker exec -it lanventory lanventory user create admin --role admin
 
 ## From source
 
-You need Go 1.24 or newer.
+You need Go 1.26 or newer (an older Go downloads the toolchain named in `go.mod`).
 
 ```bash
 CGO_ENABLED=0 go build -o bin/lanventory ./cmd/lanventory

@@ -74,13 +74,14 @@ CGO_ENABLED=0 go build -ldflags "-X github.com/lan-dot-party/lanventory/pkg/vers
 ./bin/lanventory -c config.yaml config init
 echo 'a-long-password' | ./bin/lanventory -c config.yaml user create admin --role admin
 ./bin/lanventory -c config.yaml server
-golangci-lint run                   # v1.64.8, as in CI
+golangci-lint run                   # v2.15.0, as in CI (config: .golangci.yml)
 python3 -I tools/e2e/<script>.py <base-url> <user> <password> <screenshot-dir>   # see docs/testing.md
 ```
 
-If your installed Go is newer than needed, set `GOTOOLCHAIN=local` so that `go get` does not
-pull module versions that require a newer toolchain. The race detector needs a C compiler and
-runs in CI only.
+`go.mod` names the Go version (`go 1.26.0`) and toolchain (`go1.26.11`); an older installed Go
+downloads that toolchain automatically. Do not set `GOTOOLCHAIN=local` with an older Go. When
+updating dependencies, keep `go 1.26.x`: refuse module versions that need a newer Go (`go get`
+reports "requires go >= …"). The race detector needs a C compiler and runs in CI only.
 
 ## Releases
 
@@ -94,7 +95,8 @@ reproducible (`-trimpath`, commit timestamps).
 
 ## Conventions
 
-- Go 1.24; no dependency that requires a newer toolchain.
+- Go 1.26; no dependency that requires a newer Go. Go supports the two newest major
+  releases; move on to the next one (all lan.party Go tools together) before 1.26 drops out.
 - Logging with `log/slog`; wrap errors with context (`fmt.Errorf("…: %w", err)`).
 - Timestamps in the database as Unix seconds (UTC).
 - UI texts only via keys in `internal/web/i18n.go` (English and German, German first).

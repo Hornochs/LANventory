@@ -80,7 +80,7 @@ Details, upgrade, uninstall and backup: [docs/installation.md](docs/installation
 
 ## Quick start
 
-From source (Go 1.24 or newer):
+From source (Go 1.26 or newer):
 
 ```bash
 CGO_ENABLED=0 go build -o bin/lanventory ./cmd/lanventory
