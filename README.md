@@ -76,11 +76,42 @@ docker run -d --name lanventory -p 9060:9060 \
 docker exec -it lanventory lanventory user create admin --role admin
 ```
 
-With Docker Compose (named volume or local path): [`compose.yaml`](compose.yaml),
-[`compose.bind.yaml`](compose.bind.yaml) and
-[docs/installation.md](docs/installation.md#docker-compose).
-
 Details, upgrade, uninstall and backup: [docs/installation.md](docs/installation.md).
+
+### Docker Compose
+
+Two ready-made examples in the repository root, both with the multi-arch image
+`ghcr.io/lan-dot-party/lanventory`:
+
+| File | Persistent data | When to use |
+|---|---|---|
+| [`compose.yaml`](compose.yaml) | named Docker volume `lanventory-data` | simplest; Docker manages the data |
+| [`compose.bind.yaml`](compose.bind.yaml) | local directory `./data` | data visible on the host, easy to back up; the directory must belong to UID `100` / GID `101` (the container user) |
+
+Before the first start, set `LANVENTORY_PUBLIC_URL` in the file to the address users open in
+the browser (needed for secure cookies and passkeys). The port is published on `127.0.0.1:9060`
+for a reverse proxy on the same host.
+
+With a named volume:
+
+```bash
+curl -fsSLO https://raw.githubusercontent.com/lan-dot-party/LANventory/main/compose.yaml
+docker compose up -d
+docker compose exec lanventory lanventory user create admin --role admin
+```
+
+With a local directory:
+
+```bash
+curl -fsSLO https://raw.githubusercontent.com/lan-dot-party/LANventory/main/compose.bind.yaml
+mkdir -p data && sudo chown 100:101 data
+docker compose -f compose.bind.yaml up -d
+docker compose -f compose.bind.yaml exec lanventory lanventory user create admin --role admin
+```
+
+Update with `docker compose pull && docker compose up -d` (add `-f compose.bind.yaml` for the
+second variant). Backup, reverse proxy and details:
+[docs/installation.md](docs/installation.md#docker-compose).
 
 ## Quick start
 
