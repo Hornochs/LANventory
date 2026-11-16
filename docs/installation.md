@@ -90,6 +90,60 @@ docker exec -it lanventory lanventory user create admin --role admin
 - Tags: the version (for example `0.1.0`) and `latest` for non-prerelease versions. Upgrade
   with `docker pull`, then recreate the container; migrations run on start.
 
+### Docker Compose
+
+The repository contains two Compose files. Both run the same service (port bound to
+`127.0.0.1:9060`, `restart: unless-stopped`) and differ only in where the data lives:
+
+| File | Data | Use it when |
+|------|------|-------------|
+| [`compose.yaml`](../compose.yaml) | Named Docker volume `lanventory-data` | You want the simplest setup and let Docker manage the data. |
+| [`compose.bind.yaml`](../compose.bind.yaml) | Local directory `./data` | You want the data visible in a host directory and easy to back up with normal tools. |
+
+Edit `LANVENTORY_PUBLIC_URL` (and `TZ`) in the file first. For production, replace the `latest`
+tag by a version tag such as `0.1.0`.
+
+Named volume (`compose.yaml`):
+
+```bash
+docker compose up -d
+docker compose exec lanventory lanventory user create admin --role admin
+docker compose logs -f lanventory
+docker compose pull && docker compose up -d      # update; migrations run on start
+docker compose exec lanventory lanventory backup
+```
+
+Local path (`compose.bind.yaml`): the container runs as user `lanventory` (UID 100, GID 101), so
+the directory must belong to it before the first start, otherwise the container cannot write:
+
+```bash
+mkdir -p data && sudo chown 100:101 data
+docker compose -f compose.bind.yaml up -d
+docker compose -f compose.bind.yaml exec lanventory lanventory user create admin --role admin
+docker compose -f compose.bind.yaml logs -f lanventory
+docker compose -f compose.bind.yaml pull && docker compose -f compose.bind.yaml up -d
+```
+
+Backup: `lanventory backup` writes a consistent copy of the database while the server runs into
+`/var/lib/lanventory/backups/lanventory-<time>.db`, that is, inside the data directory (the
+volume, or `./data/backups` in the bind variant). With the bind variant you can simply back up
+`./data` with your usual tools, preferably the `backups` directory plus `secret.key`. Never copy
+the live `lanventory.db` while the container runs without using the backup command.
+
+`secret.key` lives in the data directory next to the database. Back it up together with the
+database: without the key, TOTP secrets and recovery codes in the database are unusable.
+
+The port is bound to the loopback interface of the host, for a reverse proxy on the same host.
+Set `LANVENTORY_PUBLIC_URL` to the exact HTTPS origin users open in the browser: it is needed for
+secure cookies and passkeys. To expose the port directly, use `"9060:9060"` in `ports`.
+
+The reverse proxy reaches the container over the Docker network, so LANventory sees the address of
+the Docker bridge (for example `172.18.0.1`), not `127.0.0.1`. The built-in configuration only
+trusts `X-Forwarded-For` from `127.0.0.1`; otherwise the audit log and the login rate limit see
+every user with the proxy's address. Mount your own `config.yaml` (the commented line in the
+Compose files) and add the Docker network to `trusted_proxies`, for example
+`trusted_proxies: [127.0.0.1, "::1", 172.16.0.0/12]` (CIDR ranges are accepted).
+
 ## From source
 
 You need Go 1.26 or newer (an older Go downloads the toolchain named in `go.mod`).

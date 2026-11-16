@@ -6,6 +6,12 @@ uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- Docker Compose examples: `compose.yaml` (data in a named volume) and `compose.bind.yaml`
+  (data in `./data`, owned by UID 100 / GID 101), documented in `docs/installation.md` and
+  tested in CI (`.github/workflows/compose.yml`).
+
 ## [0.1.0] - 2026-11-16
 
 First release. Built with Go 1.26.

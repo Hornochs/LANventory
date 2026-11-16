@@ -76,6 +76,10 @@ docker run -d --name lanventory -p 9060:9060 \
 docker exec -it lanventory lanventory user create admin --role admin
 ```
 
+With Docker Compose (named volume or local path): [`compose.yaml`](compose.yaml),
+[`compose.bind.yaml`](compose.bind.yaml) and
+[docs/installation.md](docs/installation.md#docker-compose).
+
 Details, upgrade, uninstall and backup: [docs/installation.md](docs/installation.md).
 
 ## Quick start
